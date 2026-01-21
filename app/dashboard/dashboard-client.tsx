@@ -29,7 +29,14 @@ import {
   Menu,
   ChevronDown,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
+  Circle,
+  Minimize2,
+  Maximize2
 } from "lucide-react";
 import {
   Sheet,
@@ -113,6 +120,9 @@ export default function DashboardClient({
   // STAN ROZWIJANIA KATEGORII
   // Przechowujemy ID kategorii, które są rozwinięte
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  
+  // STAN FILTROWANIA KATEGORII
+  const [categoryFilter, setCategoryFilter] = useState("");
 
   // Efekt: Na starcie załaduj stan "is_expanded" z bazy danych
   useEffect(() => {
@@ -299,11 +309,82 @@ export default function DashboardClient({
   }, [transactions, categories, monthOffset, selectedYear]);
 
 
+  // --- FUNKCJE ROZWIJANIA/ZWIJANIA ---
+  const expandAllByOneLevel = () => {
+    const newSet = new Set(expandedCats);
+    categories.forEach(cat => {
+      if (cat.parent === null) {
+        // Rozwiń wszystkie kategorie główne (poziom 0)
+        newSet.add(cat.id);
+      }
+    });
+    setExpandedCats(newSet);
+  };
+
+  const collapseAllByOneLevel = () => {
+    // Znajdź maksymalną głębokość rozwiniętych kategorii
+    const getDepth = (catId: string): number => {
+      const cat = categories.find(c => c.id === catId);
+      if (!cat || !cat.parent) return 0;
+      return 1 + getDepth(cat.parent);
+    };
+
+    const expandedWithDepth = Array.from(expandedCats).map(id => ({
+      id,
+      depth: getDepth(id)
+    }));
+
+    if (expandedWithDepth.length === 0) return;
+
+    const maxDepth = Math.max(...expandedWithDepth.map(item => item.depth));
+    
+    // Usuń kategorie z maksymalną głębokością
+    const newSet = new Set(expandedCats);
+    expandedWithDepth.forEach(item => {
+      if (item.depth === maxDepth) {
+        newSet.delete(item.id);
+      }
+    });
+    
+    setExpandedCats(newSet);
+  };
+
+  // --- FILTROWANIE KATEGORII ---
+  const shouldShowCategory = (category: any, parentMatches: boolean = false): boolean => {
+    if (!categoryFilter.trim()) return true;
+    
+    const filterLower = categoryFilter.toLowerCase();
+    const nameMatches = category.name.toLowerCase().includes(filterLower);
+    
+    // Jeśli kategoria pasuje do filtra, pokaż ją
+    if (nameMatches) return true;
+    
+    // Jeśli rodzic pasuje, pokaż wszystkie dzieci z is_expanded
+    if (parentMatches && category.is_expanded) return true;
+    
+    // Sprawdź czy któreś z dzieci pasuje do filtra
+    if (category.children && category.children.length > 0) {
+      const hasMatchingChild = category.children.some((child: any) => 
+        shouldShowCategory(child, nameMatches || parentMatches)
+      );
+      if (hasMatchingChild) return true;
+    }
+    
+    return false;
+  };
+
   // --- RENDEROWANIE WIERSZY ---
-  const renderCategoryRow = (category: any, depth = 0) => {
+  const renderCategoryRow = (category: any, depth = 0, parentMatches = false) => {
+    // Sprawdź czy kategoria powinna być widoczna
+    if (!shouldShowCategory(category, parentMatches)) return null;
+    
     const hasChildren = category.children && category.children.length > 0;
     const isExpanded = expandedCats.has(category.id);
     const paddingLeft = depth * 20 + 10;
+    
+    // Oblicz czy nazwa tej kategorii pasuje do filtra
+    const filterLower = categoryFilter.toLowerCase();
+    const nameMatches = categoryFilter.trim() ? category.name.toLowerCase().includes(filterLower) : false;
 
     // Pobieramy wartość z mapy TOTAL (czyli suma kaskadowa)
     // Jeśli chcesz widzieć tylko direct, zmień totalValuesMap na directValuesMap
@@ -346,7 +427,7 @@ export default function DashboardClient({
 
     // Renderuj dzieci tylko jeśli kategoria jest rozwinięta
     const childrenRows = (hasChildren && isExpanded)
-        ? category.children.map((child: any) => renderCategoryRow(child, depth + 1)) 
+        ? category.children.map((child: any) => renderCategoryRow(child, depth + 1, nameMatches || parentMatches)).filter(Boolean)
         : [];
 
     return [currentRow, ...childrenRows];
@@ -407,39 +488,95 @@ export default function DashboardClient({
       <main className="flex-1 p-2 md:p-4 overflow-hidden flex flex-col">
         {activeView === "p1" ? (
              <Card className="bg-neutral-900 border-neutral-800 h-full flex flex-col overflow-hidden">
-                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 gap-4">
-                    <div>
-                        <CardTitle>Prognoza Finansowa</CardTitle>
-                        <CardDescription>Plan vs Rzeczywistość (Suma kaskadowa)</CardDescription>
+                <CardHeader className="flex flex-row items-center justify-start pb-4 gap-3">
+                    {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={expandAllByOneLevel}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors"
+                            title="Rozwiń o jeden poziom"
+                        >
+                            <Maximize2 className="h-5 w-5 text-neutral-400" />
+                        </Button>
+                        
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={collapseAllByOneLevel}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-orange-500 transition-colors"
+                            title="Zwiń o jeden poziom"
+                        >
+                            <Minimize2 className="h-5 w-5 text-neutral-400" />
+                        </Button>
                     </div>
                     
-                    {/* KONTROLERY DATY */}
-                    <div className="flex items-center gap-2 bg-neutral-950 p-1 rounded-lg border border-neutral-800">
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setSelectedYear(y => y - 1)}
-                            className="text-neutral-400 hover:text-white"
+                    {/* POLE FILTROWANIA KATEGORII */}
+                    <input
+                        type="text"
+                        placeholder="Filtruj kategorie..."
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        className="h-10 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                    />
+                    
+                    {/* PRZYCISKI NAWIGACYJNE */}
+                    <div className="flex items-center gap-2">
+                        {/* -12 miesięcy */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(m => m - 12)}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            title="-12 miesięcy"
                         >
-                            &lt;
+                            <ChevronsLeft className="h-5 w-5 text-neutral-400" />
                         </Button>
-                        <span className="font-mono font-bold text-blue-400 w-12 text-center">{selectedYear}</span>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => setSelectedYear(y => y + 1)}
-                            className="text-neutral-400 hover:text-white"
+                        
+                        {/* +12 miesięcy */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(m => m + 12)}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            title="+12 miesięcy"
                         >
-                            &gt;
+                            <ChevronsRight className="h-5 w-5 text-neutral-400" />
                         </Button>
-                        <div className="w-px h-4 bg-neutral-800 mx-2"></div>
-                        <div className="flex space-x-1">
-                            {[-1, 0, 1].map(offset => (
-                                <Button key={offset} size="sm" variant={monthOffset === offset ? "secondary" : "ghost"} className={`h-7 px-2 text-xs ${monthOffset === offset ? "bg-blue-900 text-blue-100" : "text-neutral-400"}`} onClick={() => setMonthOffset(offset)}>
-                                    {offset === 0 ? "Start: Sty" : (offset > 0 ? `+${offset} msc` : `${offset} msc`)}
-                                </Button>
-                            ))}
-                        </div>
+                        
+                        {/* -1 miesiąc */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(m => m - 1)}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            title="-1 miesiąc"
+                        >
+                            <ChevronLeft className="h-5 w-5 text-neutral-400" />
+                        </Button>
+                        
+                        {/* Obecny miesiąc (kółko) */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(0)}
+                            className={`h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''}`}
+                            title="Obecny miesiąc"
+                        >
+                            <Circle className={`h-5 w-5 ${monthOffset === 0 ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
+                        </Button>
+                        
+                        {/* +1 miesiąc */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(m => m + 1)}
+                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            title="+1 miesiąc"
+                        >
+                            <ChevronRightIcon className="h-5 w-5 text-neutral-400" />
+                        </Button>
                     </div>
                 </CardHeader>
                 
@@ -458,7 +595,7 @@ export default function DashboardClient({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {pivotData.categoryTree.map(cat => renderCategoryRow(cat))}
+                            {pivotData.categoryTree.map(cat => renderCategoryRow(cat)).filter(Boolean)}
                         </TableBody>
                         <TableFooter className="bg-neutral-900 border-t-2 border-neutral-700 sticky bottom-0 z-20">
                             {/* Row 1: Bilans Miesięczny (Monthly Totals) */}
