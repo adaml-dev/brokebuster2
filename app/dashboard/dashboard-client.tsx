@@ -235,13 +235,59 @@ export default function DashboardClient({
         }
     });
 
-    // 6. OBLICZ CUMULATIVE TOTALS - suma narastająca od lewej do prawej
+    // 6. OBLICZ CUMULATIVE TOTALS - suma narastająca OD POCZĄTKU BAZY DANYCH
+    // Znajdź najstarszą transakcję w bazie
+    let oldestDate: Date | null = null;
+    transactions.forEach(t => {
+        if (shouldIncludeTransaction(t, currentMonthKey)) {
+            const tDate = safeDate(t.date);
+            if (!oldestDate || tDate < oldestDate) {
+                oldestDate = tDate;
+            }
+        }
+    });
+
+    // Oblicz wszystkie miesięczne sumy od najstarszej daty
+    const allMonthlyTotals: Record<string, number> = {};
+    if (oldestDate !== null) {
+        // Stwórz tablicę wszystkich miesięcy od najstarszej daty do końca widocznych kolumn
+        const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
+        const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
+        
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const key = getMonthKey(currentDate);
+            allMonthlyTotals[key] = 0;
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+        }
+
+        // Wypełnij wartościami z transakcji
+        transactions.forEach(t => {
+            if (shouldIncludeTransaction(t, currentMonthKey)) {
+                const monthKey = getMonthKey(safeDate(t.date));
+                if (allMonthlyTotals[monthKey] !== undefined) {
+                    allMonthlyTotals[monthKey] += Number(t.amount);
+                }
+            }
+        });
+    }
+
+    // Oblicz kumulację od początku czasu
     const cumulativeTotals: Record<string, number> = {};
     let runningTotal = 0;
-    columns.forEach(col => {
-        runningTotal += monthlyTotals[col.key] || 0;
-        cumulativeTotals[col.key] = runningTotal;
-    });
+    
+    if (oldestDate !== null) {
+        const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
+        const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
+        
+        let currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+            const key = getMonthKey(currentDate);
+            runningTotal += allMonthlyTotals[key] || 0;
+            cumulativeTotals[key] = runningTotal;
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+        }
+    }
 
     return { 
       columns, 
