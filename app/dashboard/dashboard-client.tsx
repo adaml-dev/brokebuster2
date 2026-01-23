@@ -102,6 +102,19 @@ type DashboardClientProps = {
   rules: any[];
 };
 
+// Typ dla informacji o klikniętej komórce
+type CellInfo = {
+  monthKey: string;
+  monthLabel: string;
+  categoryPath: string[];
+  categoryId: string;
+  doneCount: number;
+  plannedCount: number;
+  doneSum: number;
+  plannedSum: number;
+  transactions: any[]; // Pełne dane transakcji
+};
+
 export default function DashboardClient({
   userEmail,
   transactions,
@@ -123,6 +136,15 @@ export default function DashboardClient({
   
   // STAN FILTROWANIA KATEGORII
   const [categoryFilter, setCategoryFilter] = useState("");
+  
+  // STAN KLIKNIĘTEJ KOMÓRKI
+  const [clickedCell, setClickedCell] = useState<CellInfo | null>(null);
+  const [isCellInfoExpanded, setIsCellInfoExpanded] = useState(false);
+  
+  // STAN SORTOWANIA I FILTROWANIA TRANSAKCJI
+  const [sortColumn, setSortColumn] = useState<string>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [transactionFilter, setTransactionFilter] = useState('');
 
   // Efekt: Na starcie załaduj stan "is_expanded" z bazy danych
   useEffect(() => {
@@ -141,6 +163,150 @@ export default function DashboardClient({
           newSet.add(catId);
       }
       setExpandedCats(newSet);
+  };
+
+  // Funkcja do budowania ścieżki kategorii (parent -> child -> subchild)
+  const getCategoryPath = (categoryId: string): string[] => {
+    const path: string[] = [];
+    let currentId: string | null = categoryId;
+    
+    while (currentId) {
+      const cat = categories.find(c => c.id === currentId);
+      if (cat) {
+        path.unshift(cat.name);
+        currentId = cat.parent;
+      } else {
+        break;
+      }
+    }
+    
+    return path;
+  };
+
+  // Funkcja pomocnicza do zbierania wszystkich ID kategorii (włącznie z dziećmi)
+  const getAllCategoryIds = (categoryId: string): string[] => {
+    const ids = [categoryId];
+    const category = categories.find(c => c.id === categoryId);
+    
+    if (category) {
+      const children = categories.filter(c => c.parent === categoryId);
+      children.forEach(child => {
+        ids.push(...getAllCategoryIds(child.id));
+      });
+    }
+    
+    return ids;
+  };
+
+  // Funkcja do obsługi kliknięcia komórki
+  const handleCellClick = (categoryId: string, monthKey: string, monthLabel: string) => {
+    const today = new Date();
+    const currentMonthKey = getMonthKey(today);
+    
+    // Zbierz wszystkie ID kategorii (włącznie z dziećmi)
+    const allCategoryIds = getAllCategoryIds(categoryId);
+    
+    // Znajdź wszystkie transakcje dla tej kategorii i jej dzieci w danym miesiącu
+    const categoryTransactions = transactions.filter(t => {
+      const transCategoryName = (t.category || "").toString().trim().toLowerCase();
+      const matchedCategory = categories.find(c => 
+        c.id === t.category || 
+        c.name.toLowerCase().trim() === transCategoryName 
+      );
+      
+      if (matchedCategory && allCategoryIds.includes(matchedCategory.id)) {
+        const tMonthKey = getMonthKey(safeDate(t.date));
+        return tMonthKey === monthKey && shouldIncludeTransaction(t, currentMonthKey);
+      }
+      return false;
+    });
+    
+    // Policz transakcje DONE i PLANNED
+    const doneTransactions = categoryTransactions.filter(t => 
+      t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true
+    );
+    const plannedTransactions = categoryTransactions.filter(t => 
+      t.transaction_type === 'planned'
+    );
+    
+    // Oblicz sumy
+    const doneSum = doneTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    const plannedSum = plannedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    // Ustaw informacje o klikniętej komórce
+    setClickedCell({
+      monthKey,
+      monthLabel,
+      categoryPath: getCategoryPath(categoryId),
+      categoryId,
+      doneCount: doneTransactions.length,
+      plannedCount: plannedTransactions.length,
+      doneSum,
+      plannedSum,
+      transactions: categoryTransactions,
+    });
+    
+    // Resetuj filtr i sortowanie przy nowym kliknięciu
+    setTransactionFilter('');
+    setSortColumn('date');
+    setSortDirection('desc');
+  };
+  
+  // Funkcja sortowania transakcji
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+  
+  // Filtrowanie i sortowanie transakcji
+  const getFilteredAndSortedTransactions = () => {
+    if (!clickedCell) return [];
+    
+    let filtered = clickedCell.transactions;
+    
+    // Filtrowanie
+    if (transactionFilter.trim()) {
+      const filterLower = transactionFilter.toLowerCase();
+      filtered = filtered.filter(t => 
+        Object.values(t).some(val => 
+          String(val).toLowerCase().includes(filterLower)
+        )
+      );
+    }
+    
+    // Sortowanie
+    const sorted = [...filtered].sort((a, b) => {
+      let aVal = a[sortColumn];
+      let bVal = b[sortColumn];
+      
+      // Obsługa dat
+      if (sortColumn === 'date' || sortColumn === 'created_at') {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+      
+      // Obsługa liczb
+      if (sortColumn === 'amount') {
+        aVal = Number(aVal) || 0;
+        bVal = Number(bVal) || 0;
+      }
+      
+      // Obsługa stringów
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = String(bVal).toLowerCase();
+      }
+      
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    return sorted;
   };
 
   // --- OBLICZENIA PIVOT TABLE ---
@@ -411,7 +577,11 @@ export default function DashboardClient({
           {pivotData.columns.map(col => {
              const val = values[col.key] || 0;
              return (
-               <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs">
+               <TableCell 
+                 key={col.key} 
+                 className="text-right p-2 min-w-[80px] text-xs cursor-pointer hover:bg-blue-900/30 transition-colors"
+                 onClick={() => handleCellClick(category.id, col.key, col.label)}
+               >
                  {val !== 0 ? (
                    <span className={val < 0 ? "text-red-400 font-medium" : "text-green-400 font-medium"}>
                      {formatCurrency(val)}
@@ -488,6 +658,170 @@ export default function DashboardClient({
       <main className="flex-1 p-2 md:p-4 overflow-hidden flex flex-col">
         {activeView === "p1" ? (
              <Card className="bg-neutral-900 border-neutral-800 h-full flex flex-col overflow-hidden">
+                {/* SEKCJA INFORMACJI O KLIKNIĘTEJ KOMÓRCE */}
+                {clickedCell && (
+                  <div 
+                    className={`border-b border-neutral-800 bg-neutral-950 transition-all duration-300 overflow-hidden ${
+                      isCellInfoExpanded ? 'h-[50vh]' : 'h-auto'
+                    }`}
+                  >
+                    <div className="p-4">
+                      {/* Nagłówek z przyciskiem expand */}
+                      <div className="flex items-start gap-3 mb-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsCellInfoExpanded(!isCellInfoExpanded)}
+                          className="border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 flex items-center gap-2"
+                        >
+                          {isCellInfoExpanded ? (
+                            <>
+                              <Minimize2 className="h-4 w-4" />
+                              <span className="text-xs">Zwiń</span>
+                            </>
+                          ) : (
+                            <>
+                              <Maximize2 className="h-4 w-4" />
+                              <span className="text-xs">Rozwiń</span>
+                            </>
+                          )}
+                        </Button>
+                        
+                        <div className="flex-1">
+                          {/* Podstawowe informacje - zawsze widoczne */}
+                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-500 font-medium">Miesiąc:</span>
+                              <span className="text-white font-semibold">{clickedCell.monthLabel}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-500 font-medium">Kategoria:</span>
+                              <span className="text-blue-400 font-semibold">
+                                {clickedCell.categoryPath.join(' → ')}
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-500 font-medium">Done:</span>
+                              <span className="text-green-400 font-semibold">
+                                {clickedCell.doneCount} trans. / {formatCurrency(clickedCell.doneSum)} PLN
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-500 font-medium">Planned:</span>
+                              <span className="text-yellow-400 font-semibold">
+                                {clickedCell.plannedCount} trans. / {formatCurrency(clickedCell.plannedSum)} PLN
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Rozszerzona sekcja - widoczna po kliknięciu expand */}
+                      {isCellInfoExpanded && (
+                        <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(50vh - 120px)' }}>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-white">
+                              Transakcje ({getFilteredAndSortedTransactions().length})
+                            </h3>
+                            
+                            {/* Pole filtrowania */}
+                            <input
+                              type="text"
+                              placeholder="Filtruj transakcje..."
+                              value={transactionFilter}
+                              onChange={(e) => setTransactionFilter(e.target.value)}
+                              className="h-8 px-3 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                            />
+                          </div>
+                          
+                          {/* Tabela transakcji */}
+                          <div className="overflow-auto flex-1">
+                            <Table>
+                              <TableHeader className="bg-neutral-950 sticky top-0 z-10">
+                                <TableRow className="border-b border-neutral-700">
+                                  {[
+                                    { key: 'date', label: 'Data' },
+                                    { key: 'transaction_type', label: 'Typ' },
+                                    { key: 'amount', label: 'Kwota' },
+                                    { key: 'payee', label: 'Odbiorca' },
+                                    { key: 'description', label: 'Opis' },
+                                    { key: 'origin', label: 'Pochodzenie' },
+                                    { key: 'source', label: 'Źródło' },
+                                  ].map(col => (
+                                    <TableHead 
+                                      key={col.key}
+                                      className="text-xs cursor-pointer hover:bg-neutral-800 transition-colors whitespace-nowrap"
+                                      onClick={() => handleSort(col.key)}
+                                    >
+                                      <div className="flex items-center gap-1">
+                                        {col.label}
+                                        {sortColumn === col.key && (
+                                          <span className="text-blue-400">
+                                            {sortDirection === 'asc' ? '↑' : '↓'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </TableHead>
+                                  ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {getFilteredAndSortedTransactions().length > 0 ? (
+                                  getFilteredAndSortedTransactions().map((transaction, idx) => (
+                                    <TableRow 
+                                      key={transaction.id || idx} 
+                                      className="hover:bg-neutral-800/50 border-b border-neutral-800"
+                                    >
+                                      <TableCell className="text-xs whitespace-nowrap">
+                                        {formatDate(transaction.date)}
+                                      </TableCell>
+                                      <TableCell className="text-xs">
+                                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                          transaction.transaction_type === 'done' 
+                                            ? 'bg-green-900/30 text-green-400' 
+                                            : 'bg-yellow-900/30 text-yellow-400'
+                                        }`}>
+                                          {transaction.transaction_type}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="text-xs text-right">
+                                        <span className={Number(transaction.amount) < 0 ? 'text-red-400' : 'text-green-400'}>
+                                          {formatCurrency(Number(transaction.amount))}
+                                        </span>
+                                      </TableCell>
+                                      <TableCell className="text-xs text-neutral-300 max-w-[200px] truncate">
+                                        {transaction.payee || '-'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-neutral-400 max-w-[250px] truncate">
+                                        {transaction.description || '-'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-neutral-300 max-w-[150px] truncate">
+                                        {transaction.origin || '-'}
+                                      </TableCell>
+                                      <TableCell className="text-xs text-neutral-500">
+                                        {transaction.source || '-'}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                                ) : (
+                                  <TableRow>
+                                    <TableCell colSpan={7} className="text-center text-neutral-500 py-8">
+                                      Brak transakcji do wyświetlenia
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 <CardHeader className="flex flex-row items-center justify-start pb-4 gap-3">
                     {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
                     <div className="flex items-center gap-2">
