@@ -661,13 +661,13 @@ export default function DashboardClient({
                 {/* SEKCJA INFORMACJI O KLIKNIĘTEJ KOMÓRCE */}
                 {clickedCell && (
                   <div 
-                    className={`border-b border-neutral-800 bg-neutral-950 transition-all duration-300 overflow-hidden ${
-                      isCellInfoExpanded ? 'h-[50vh]' : 'h-auto'
+                    className={`border-b-2 border-purple-500/40 bg-gradient-to-br from-purple-900/40 via-violet-900/30 to-neutral-800 shadow-xl shadow-purple-900/20 transition-all duration-300 overflow-hidden ${
+                      isCellInfoExpanded ? 'h-[50vh] md:h-[45vh]' : 'h-auto max-h-[40vh] md:max-h-none'
                     }`}
                   >
-                    <div className="p-4">
+                    <div className="p-3 md:p-4 overflow-x-auto backdrop-blur-sm">
                       {/* Nagłówek z przyciskiem expand */}
-                      <div className="flex items-start gap-3 mb-3">
+                      <div className="flex items-start gap-2 md:gap-3 mb-3 min-w-max md:min-w-0">
                         <Button
                           variant="outline"
                           size="sm"
