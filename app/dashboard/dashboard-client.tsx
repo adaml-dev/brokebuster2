@@ -145,6 +145,14 @@ export default function DashboardClient({
   const [sortColumn, setSortColumn] = useState<string>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [transactionFilter, setTransactionFilter] = useState('');
+  
+  // STAN TOGGLE BUTTON (assigned/unassigned transactions)
+  const [showUnassigned, setShowUnassigned] = useState(false);
+  
+  // STAN ZAZNACZONYCH TRANSAKCJI (dla przypisywania do kategorii)
+  const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
+  const [assignToCategoryId, setAssignToCategoryId] = useState<string>('');
+  const [categorySearchFilter, setCategorySearchFilter] = useState<string>('');
 
   // Efekt: Na starcie załaduj stan "is_expanded" z bazy danych
   useEffect(() => {
@@ -154,6 +162,20 @@ export default function DashboardClient({
       });
       setExpandedCats(initialExpanded);
   }, [categories]);
+  
+  // Efekt: Automatycznie wybierz pierwszą kategorię z przefiltrowanej listy
+  useEffect(() => {
+      if (categorySearchFilter.trim()) {
+          const filtered = getFilteredAndSortedCategories();
+          if (filtered.length > 0) {
+              setAssignToCategoryId(filtered[0].id);
+          } else {
+              setAssignToCategoryId('');
+          }
+      } else {
+          setAssignToCategoryId('');
+      }
+  }, [categorySearchFilter, categories]);
 
   const toggleCategory = (catId: string) => {
       const newSet = new Set(expandedCats);
@@ -200,13 +222,11 @@ export default function DashboardClient({
 
   // Funkcja do obsługi kliknięcia komórki
   const handleCellClick = (categoryId: string, monthKey: string, monthLabel: string) => {
-    const today = new Date();
-    const currentMonthKey = getMonthKey(today);
-    
     // Zbierz wszystkie ID kategorii (włącznie z dziećmi)
     const allCategoryIds = getAllCategoryIds(categoryId);
     
-    // Znajdź wszystkie transakcje dla tej kategorii i jej dzieci w danym miesiącu
+    // ZMIANA: Pokazujemy WSZYSTKIE transakcje dla danej kategorii i miesiąca,
+    // niezależnie od logiki shouldIncludeTransaction używanej w tabeli
     const categoryTransactions = transactions.filter(t => {
       const transCategoryName = (t.category || "").toString().trim().toLowerCase();
       const matchedCategory = categories.find(c => 
@@ -216,7 +236,8 @@ export default function DashboardClient({
       
       if (matchedCategory && allCategoryIds.includes(matchedCategory.id)) {
         const tMonthKey = getMonthKey(safeDate(t.date));
-        return tMonthKey === monthKey && shouldIncludeTransaction(t, currentMonthKey);
+        // Zwracamy wszystkie transakcje z danego miesiąca
+        return tMonthKey === monthKey;
       }
       return false;
     });
@@ -266,7 +287,9 @@ export default function DashboardClient({
   const getFilteredAndSortedTransactions = () => {
     if (!clickedCell) return [];
     
-    let filtered = clickedCell.transactions;
+    let filtered = showUnassigned 
+      ? getUnassignedTransactionsForMonth(clickedCell.monthKey)
+      : clickedCell.transactions;
     
     // Filtrowanie
     if (transactionFilter.trim()) {
@@ -307,6 +330,123 @@ export default function DashboardClient({
     });
     
     return sorted;
+  };
+  
+  // Funkcja do pobierania transakcji nieprzypisanych dla danego miesiąca
+  const getUnassignedTransactionsForMonth = (monthKey: string) => {
+    return transactions.filter(t => {
+      const tMonthKey = getMonthKey(safeDate(t.date));
+      
+      // Sprawdź czy transakcja jest z odpowiedniego miesiąca
+      if (tMonthKey !== monthKey) return false;
+      
+      // Sprawdź czy transakcja nie ma przypisanej kategorii
+      const transCategoryName = (t.category || "").toString().trim().toLowerCase();
+      const hasCategory = categories.some(c => 
+        c.id === t.category || 
+        c.name.toLowerCase().trim() === transCategoryName 
+      );
+      
+      return !hasCategory || !t.category || t.category === '';
+    });
+  };
+  
+  // Funkcja do zaznaczania/odznaczania transakcji
+  const toggleTransactionSelection = (transactionId: string) => {
+    const newSet = new Set(selectedTransactionIds);
+    if (newSet.has(transactionId)) {
+      newSet.delete(transactionId);
+    } else {
+      newSet.add(transactionId);
+    }
+    setSelectedTransactionIds(newSet);
+  };
+  
+  // Funkcja do zaznaczania/odznaczania wszystkich transakcji
+  const toggleAllTransactions = () => {
+    const visibleTransactions = getFilteredAndSortedTransactions();
+    if (selectedTransactionIds.size === visibleTransactions.length) {
+      // Jeśli wszystkie są zaznaczone, odznacz wszystkie
+      setSelectedTransactionIds(new Set());
+    } else {
+      // Zaznacz wszystkie widoczne
+      const allIds = new Set(visibleTransactions.map(t => t.id));
+      setSelectedTransactionIds(allIds);
+    }
+  };
+  
+  // Funkcja do filtrowania i sortowania kategorii dla dropdown
+  const getFilteredAndSortedCategories = () => {
+    // Funkcja pomocnicza do sprawdzania czy kategoria lub jej dzieci pasują do filtra
+    const categoryMatchesFilter = (cat: any, searchTerm: string): boolean => {
+      if (!searchTerm) return true;
+      
+      const lowerSearch = searchTerm.toLowerCase();
+      
+      // Sprawdź czy nazwa tej kategorii pasuje
+      if (cat.name.toLowerCase().includes(lowerSearch)) {
+        return true;
+      }
+      
+      // Sprawdź czy któreś z dzieci pasuje
+      const children = categories.filter(c => c.parent === cat.id);
+      return children.some(child => categoryMatchesFilter(child, searchTerm));
+    };
+    
+    // Filtruj kategorie
+    let filtered = categories.filter(cat => {
+      // Wyklucz kategorie z is_expanded (kategorie nadrzędne - nie można do nich przypisywać transakcji)
+      if (cat.is_expanded === true) {
+        return false;
+      }
+      
+      // Wyklucz kategorie najwyższego poziomu (parent === null)
+      if (cat.parent === null) {
+        return false;
+      }
+      
+      // Filtruj według wyszukiwania
+      return categoryMatchesFilter(cat, categorySearchFilter);
+    });
+    
+    // Sortuj alfabetycznie według pełnej ścieżki (rosnąco)
+    filtered = filtered.sort((a, b) => {
+      const pathA = getCategoryPath(a.id).join(' > ').toLowerCase();
+      const pathB = getCategoryPath(b.id).join(' > ').toLowerCase();
+      return pathA.localeCompare(pathB, 'pl');
+    });
+    
+    return filtered;
+  };
+  
+  // Funkcja do przypisywania zaznaczonych transakcji do kategorii
+  const handleAssignToCategory = () => {
+    if (!assignToCategoryId || selectedTransactionIds.size === 0) {
+      alert('Wybierz kategorię i zaznacz co najmniej jedną transakcję');
+      return;
+    }
+    
+    // Tu powinna być logika zapisywania do bazy danych
+    console.log('Przypisywanie transakcji:', {
+      transactionIds: Array.from(selectedTransactionIds),
+      categoryId: assignToCategoryId
+    });
+    
+    // TODO: Wywołać API do aktualizacji transakcji w bazie danych
+    alert(`Przypisano ${selectedTransactionIds.size} transakcji do kategorii. (Funkcja wymaga implementacji API)`);
+    
+    // Reset po przypisaniu
+    setSelectedTransactionIds(new Set());
+    setAssignToCategoryId('');
+    setCategorySearchFilter('');
+  };
+  
+  // Reset stanu przy zmianie toggle
+  const handleToggleChange = () => {
+    setShowUnassigned(!showUnassigned);
+    setSelectedTransactionIds(new Set());
+    setAssignToCategoryId('');
+    setTransactionFilter('');
   };
 
   // --- OBLICZENIA PIVOT TABLE ---
@@ -722,10 +862,37 @@ export default function DashboardClient({
                       {/* Rozszerzona sekcja - widoczna po kliknięciu expand */}
                       {isCellInfoExpanded && (
                         <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(50vh - 120px)' }}>
+                          {/* TOGGLE BUTTON - przed nagłówkiem Transakcje */}
                           <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-white">
-                              Transakcje ({getFilteredAndSortedTransactions().length})
-                            </h3>
+                            <div className="flex items-center gap-4">
+                              <h3 className="text-lg font-semibold text-white">
+                                Transakcje ({getFilteredAndSortedTransactions().length})
+                              </h3>
+                              
+                              {/* Toggle Button */}
+                              <div className="flex items-center gap-2 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
+                                <button
+                                  onClick={handleToggleChange}
+                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                    !showUnassigned 
+                                      ? 'bg-blue-600 text-white' 
+                                      : 'text-neutral-400 hover:text-white'
+                                  }`}
+                                >
+                                  Przypisane
+                                </button>
+                                <button
+                                  onClick={handleToggleChange}
+                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                    showUnassigned 
+                                      ? 'bg-orange-600 text-white' 
+                                      : 'text-neutral-400 hover:text-white'
+                                  }`}
+                                >
+                                  Nieprzypisane
+                                </button>
+                              </div>
+                            </div>
                             
                             {/* Pole filtrowania */}
                             <input
@@ -737,11 +904,67 @@ export default function DashboardClient({
                             />
                           </div>
                           
+                          {/* Panel przypisywania kategorii - tylko dla widoku nieprzypisanych */}
+                          {showUnassigned && selectedTransactionIds.size > 0 && (
+                            <div className="mb-4 p-3 bg-neutral-950 rounded-lg border border-orange-500/50">
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="text-sm text-neutral-300">
+                                  Zaznaczono: <span className="font-bold text-orange-400">{selectedTransactionIds.size}</span>
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-3">
+                                {/* Pole wyszukiwania kategorii */}
+                                <input
+                                  type="text"
+                                  placeholder="Szukaj kategorii..."
+                                  value={categorySearchFilter}
+                                  onChange={(e) => setCategorySearchFilter(e.target.value)}
+                                  className="h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-48"
+                                />
+                                
+                                {/* Dropdown z posortowanymi i przefiltrowanymi kategoriami */}
+                                <select
+                                  value={assignToCategoryId}
+                                  onChange={(e) => setAssignToCategoryId(e.target.value)}
+                                  className="flex-1 h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                >
+                                  <option value="">Wybierz kategorię...</option>
+                                  {getFilteredAndSortedCategories().map(cat => (
+                                    <option key={cat.id} value={cat.id}>
+                                      {getCategoryPath(cat.id).join(' → ')}
+                                    </option>
+                                  ))}
+                                </select>
+                                
+                                <Button
+                                  onClick={handleAssignToCategory}
+                                  disabled={!assignToCategoryId}
+                                  size="sm"
+                                  className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  Przypisz
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Tabela transakcji */}
                           <div className="overflow-auto flex-1">
                             <Table>
                               <TableHeader className="bg-neutral-950 sticky top-0 z-10">
                                 <TableRow className="border-b border-neutral-700">
+                                  {/* Checkbox column - tylko dla widoku nieprzypisanych */}
+                                  {showUnassigned && (
+                                    <TableHead className="w-10 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={getFilteredAndSortedTransactions().length > 0 && selectedTransactionIds.size === getFilteredAndSortedTransactions().length}
+                                        onChange={toggleAllTransactions}
+                                        className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                      />
+                                    </TableHead>
+                                  )}
                                   {[
                                     { key: 'date', label: 'Data' },
                                     { key: 'transaction_type', label: 'Typ' },
@@ -775,6 +998,17 @@ export default function DashboardClient({
                                       key={transaction.id || idx} 
                                       className="hover:bg-neutral-800/50 border-b border-neutral-800"
                                     >
+                                      {/* Checkbox cell - tylko dla widoku nieprzypisanych */}
+                                      {showUnassigned && (
+                                        <TableCell className="w-10 text-center">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedTransactionIds.has(transaction.id)}
+                                            onChange={() => toggleTransactionSelection(transaction.id)}
+                                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+                                          />
+                                        </TableCell>
+                                      )}
                                       <TableCell className="text-xs whitespace-nowrap">
                                         {formatDate(transaction.date)}
                                       </TableCell>
@@ -808,8 +1042,8 @@ export default function DashboardClient({
                                   ))
                                 ) : (
                                   <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-neutral-500 py-8">
-                                      Brak transakcji do wyświetlenia
+                                    <TableCell colSpan={showUnassigned ? 8 : 7} className="text-center text-neutral-500 py-8">
+                                      {showUnassigned ? 'Brak nieprzypisanych transakcji w tym miesiącu' : 'Brak transakcji do wyświetlenia'}
                                     </TableCell>
                                   </TableRow>
                                 )}
