@@ -378,7 +378,7 @@ export default function DashboardClient({
   // Funkcja do filtrowania i sortowania kategorii dla dropdown
   const getFilteredAndSortedCategories = () => {
     // Funkcja pomocnicza do sprawdzania czy kategoria lub jej dzieci pasują do filtra
-    const categoryMatchesFilter = (cat: any, searchTerm: string): boolean => {
+    const categoryMatchesFilter = (cat: typeof categories[0], searchTerm: string): boolean => {
       if (!searchTerm) return true;
       
       const lowerSearch = searchTerm.toLowerCase();
@@ -802,10 +802,10 @@ export default function DashboardClient({
                 {clickedCell && (
                   <div 
                     className={`border-b-2 border-purple-500/40 bg-gradient-to-br from-purple-900/40 via-violet-900/30 to-neutral-800 shadow-xl shadow-purple-900/20 transition-all duration-300 overflow-hidden ${
-                      isCellInfoExpanded ? 'h-[50vh] md:h-[45vh]' : 'h-auto max-h-[40vh] md:max-h-none'
+                      isCellInfoExpanded ? 'h-[65vh] md:h-[50vh]' : 'h-auto max-h-[40vh] md:max-h-none'
                     }`}
                   >
-                    <div className="p-3 md:p-4 overflow-x-auto backdrop-blur-sm">
+                    <div className="p-3 md:p-4 overflow-y-auto overflow-x-auto backdrop-blur-sm h-full">
                       {/* Nagłówek z przyciskiem expand */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 mb-3">
                         <Button
@@ -861,7 +861,7 @@ export default function DashboardClient({
                       
                       {/* Rozszerzona sekcja - widoczna po kliknięciu expand */}
                       {isCellInfoExpanded && (
-                        <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(50vh - 120px)' }}>
+                        <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(65vh - 180px)' }}>
                           {/* TOGGLE BUTTON - przed nagłówkiem Transakcje */}
                           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -920,14 +920,15 @@ export default function DashboardClient({
                                   placeholder="Szukaj kategorii..."
                                   value={categorySearchFilter}
                                   onChange={(e) => setCategorySearchFilter(e.target.value)}
-                                  className="h-10 sm:h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-48"
+                                  className="h-12 sm:h-8 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-48 touch-manipulation"
                                 />
                                 
                                 {/* Dropdown z posortowanymi i przefiltrowanymi kategoriami */}
                                 <select
                                   value={assignToCategoryId}
                                   onChange={(e) => setAssignToCategoryId(e.target.value)}
-                                  className="flex-1 h-10 sm:h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  className="flex-1 h-12 sm:h-8 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 touch-manipulation"
+                                  size={1}
                                 >
                                   <option value="">Wybierz kategorię...</option>
                                   {getFilteredAndSortedCategories().map((cat: any) => (
