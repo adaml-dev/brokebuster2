@@ -807,12 +807,12 @@ export default function DashboardClient({
                   >
                     <div className="p-3 md:p-4 overflow-x-auto backdrop-blur-sm">
                       {/* Nagłówek z przyciskiem expand */}
-                      <div className="flex items-start gap-2 md:gap-3 mb-3 min-w-max md:min-w-0">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 mb-3">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setIsCellInfoExpanded(!isCellInfoExpanded)}
-                          className="border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 flex items-center gap-2"
+                          className="border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 flex items-center justify-center gap-2 touch-manipulation min-h-[44px]"
                         >
                           {isCellInfoExpanded ? (
                             <>
@@ -827,9 +827,9 @@ export default function DashboardClient({
                           )}
                         </Button>
                         
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           {/* Podstawowe informacje - zawsze widoczne */}
-                          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
                             <div className="flex items-center gap-2">
                               <span className="text-neutral-500 font-medium">Miesiąc:</span>
                               <span className="text-white font-semibold">{clickedCell.monthLabel}</span>
@@ -863,9 +863,9 @@ export default function DashboardClient({
                       {isCellInfoExpanded && (
                         <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(50vh - 120px)' }}>
                           {/* TOGGLE BUTTON - przed nagłówkiem Transakcje */}
-                          <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-4">
-                              <h3 className="text-lg font-semibold text-white">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                              <h3 className="text-base sm:text-lg font-semibold text-white">
                                 Transakcje ({getFilteredAndSortedTransactions().length})
                               </h3>
                               
@@ -873,7 +873,7 @@ export default function DashboardClient({
                               <div className="flex items-center gap-2 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
                                 <button
                                   onClick={handleToggleChange}
-                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                  className={`px-3 py-2 sm:py-1 rounded text-xs font-medium transition-all touch-manipulation ${
                                     !showUnassigned 
                                       ? 'bg-blue-600 text-white' 
                                       : 'text-neutral-400 hover:text-white'
@@ -883,7 +883,7 @@ export default function DashboardClient({
                                 </button>
                                 <button
                                   onClick={handleToggleChange}
-                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                  className={`px-3 py-2 sm:py-1 rounded text-xs font-medium transition-all touch-manipulation ${
                                     showUnassigned 
                                       ? 'bg-orange-600 text-white' 
                                       : 'text-neutral-400 hover:text-white'
@@ -900,7 +900,7 @@ export default function DashboardClient({
                               placeholder="Filtruj transakcje..."
                               value={transactionFilter}
                               onChange={(e) => setTransactionFilter(e.target.value)}
-                              className="h-8 px-3 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                              className="h-10 sm:h-8 px-3 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
                             />
                           </div>
                           
@@ -913,24 +913,24 @@ export default function DashboardClient({
                                 </span>
                               </div>
                               
-                              <div className="flex items-center gap-3">
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 {/* Pole wyszukiwania kategorii */}
                                 <input
                                   type="text"
                                   placeholder="Szukaj kategorii..."
                                   value={categorySearchFilter}
                                   onChange={(e) => setCategorySearchFilter(e.target.value)}
-                                  className="h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-48"
+                                  className="h-10 sm:h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-48"
                                 />
                                 
                                 {/* Dropdown z posortowanymi i przefiltrowanymi kategoriami */}
                                 <select
                                   value={assignToCategoryId}
                                   onChange={(e) => setAssignToCategoryId(e.target.value)}
-                                  className="flex-1 h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                  className="flex-1 h-10 sm:h-8 px-3 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
                                 >
                                   <option value="">Wybierz kategorię...</option>
-                                  {getFilteredAndSortedCategories().map(cat => (
+                                  {getFilteredAndSortedCategories().map((cat: any) => (
                                     <option key={cat.id} value={cat.id}>
                                       {getCategoryPath(cat.id).join(' → ')}
                                     </option>
@@ -941,7 +941,7 @@ export default function DashboardClient({
                                   onClick={handleAssignToCategory}
                                   disabled={!assignToCategoryId}
                                   size="sm"
-                                  className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                  className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px] sm:min-h-0"
                                 >
                                   Przypisz
                                 </Button>
@@ -1056,14 +1056,14 @@ export default function DashboardClient({
                   </div>
                 )}
                 
-                <CardHeader className="flex flex-row items-center justify-start pb-4 gap-3">
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-start pb-4 gap-3">
                     {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={expandAllByOneLevel}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors"
+                            className="h-12 w-12 sm:h-10 sm:w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation"
                             title="Rozwiń o jeden poziom"
                         >
                             <Maximize2 className="h-5 w-5 text-neutral-400" />
@@ -1073,7 +1073,7 @@ export default function DashboardClient({
                             variant="outline"
                             size="icon"
                             onClick={collapseAllByOneLevel}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-orange-500 transition-colors"
+                            className="h-12 w-12 sm:h-10 sm:w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-orange-500 transition-colors touch-manipulation"
                             title="Zwiń o jeden poziom"
                         >
                             <Minimize2 className="h-5 w-5 text-neutral-400" />
@@ -1086,31 +1086,20 @@ export default function DashboardClient({
                         placeholder="Filtruj kategorie..."
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="h-10 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-48"
+                        className="h-12 sm:h-10 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-48"
                     />
                     
                     {/* PRZYCISKI NAWIGACYJNE */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center md:justify-start gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
                         {/* -12 miesięcy */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m - 12)}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="-12 miesięcy"
                         >
                             <ChevronsLeft className="h-5 w-5 text-neutral-400" />
-                        </Button>
-                        
-                        {/* +12 miesięcy */}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setMonthOffset(m => m + 12)}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
-                            title="+12 miesięcy"
-                        >
-                            <ChevronsRight className="h-5 w-5 text-neutral-400" />
                         </Button>
                         
                         {/* -1 miesiąc */}
@@ -1118,7 +1107,7 @@ export default function DashboardClient({
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m - 1)}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="-1 miesiąc"
                         >
                             <ChevronLeft className="h-5 w-5 text-neutral-400" />
@@ -1129,7 +1118,7 @@ export default function DashboardClient({
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(0)}
-                            className={`h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''}`}
+                            className={`h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''}`}
                             title="Obecny miesiąc"
                         >
                             <Circle className={`h-5 w-5 ${monthOffset === 0 ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
@@ -1140,10 +1129,21 @@ export default function DashboardClient({
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m + 1)}
-                            className="h-10 w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors"
+                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="+1 miesiąc"
                         >
                             <ChevronRightIcon className="h-5 w-5 text-neutral-400" />
+                        </Button>
+                        
+                        {/* +12 miesięcy */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setMonthOffset(m => m + 12)}
+                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            title="+12 miesięcy"
+                        >
+                            <ChevronsRight className="h-5 w-5 text-neutral-400" />
                         </Button>
                     </div>
                 </CardHeader>
