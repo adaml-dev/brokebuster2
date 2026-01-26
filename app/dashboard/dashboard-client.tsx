@@ -561,6 +561,161 @@ export default function DashboardClient({
     }
   };
   
+  // Funkcja do odłączania zaznaczonych transakcji od kategorii
+  const handleUnlinkFromCategory = async () => {
+    if (selectedTransactionIds.size === 0) {
+      alert('Zaznacz co najmniej jedną transakcję');
+      return;
+    }
+    
+    const transactionCount = selectedTransactionIds.size;
+    const confirmMessage = `Czy na pewno chcesz odłączyć ${transactionCount} transakcji od kategorii?\n\nTransakcje staną się nieprzypisane.`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      // Wywołaj API do odłączenia transakcji
+      const response = await fetch('/api/transactions/unlink-category', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionIds: Array.from(selectedTransactionIds),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to unlink transactions');
+      }
+
+      // Sukces - zapisz pełny stan przed odświeżeniem
+      const stateToSave = {
+        expandedCats: Array.from(expandedCats),
+        monthOffset: monthOffset,
+        categoryFilter: categoryFilter,
+        clickedCell: clickedCell,
+        isCellInfoExpanded: isCellInfoExpanded,
+        showUnassigned: showUnassigned,
+        transactionFilter: transactionFilter,
+        categorySearchFilter: categorySearchFilter,
+        assignToCategoryId: assignToCategoryId,
+      };
+      localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+      
+      // Pokaż komunikat
+      alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.\n\nStrona zostanie odświeżona.`);
+      
+      // Odśwież stronę aby załadować zaktualizowane dane
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error unlinking transactions:', error);
+      alert(`❌ Błąd podczas odłączania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+    }
+  };
+  
+  // Funkcja do usuwania zaznaczonych transakcji
+  const handleDeleteTransactions = async () => {
+    if (selectedTransactionIds.size === 0) {
+      alert('Zaznacz co najmniej jedną transakcję');
+      return;
+    }
+    
+    const transactionCount = selectedTransactionIds.size;
+    const confirmMessage = `❗ UWAGA ❗\n\nCzy na pewno chcesz TRWALE USUNĄĆ ${transactionCount} transakcji?\n\nTej operacji NIE MOŻNA cofnąć!`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    // Dodatkowe potwierdzenie dla bezpieczeństwa
+    const doubleConfirm = confirm(`Potwierdź ponownie:\n\nUsuwam ${transactionCount} transakcji bezpowrotnie.`);
+    if (!doubleConfirm) {
+      return;
+    }
+    
+    try {
+      // Wywołaj API do usunięcia transakcji
+      const response = await fetch('/api/transactions/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionIds: Array.from(selectedTransactionIds),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to delete transactions');
+      }
+
+      // Sukces - zapisz pełny stan przed odświeżeniem
+      const stateToSave = {
+        expandedCats: Array.from(expandedCats),
+        monthOffset: monthOffset,
+        categoryFilter: categoryFilter,
+        clickedCell: clickedCell,
+        isCellInfoExpanded: isCellInfoExpanded,
+        showUnassigned: showUnassigned,
+        transactionFilter: transactionFilter,
+        categorySearchFilter: categorySearchFilter,
+        assignToCategoryId: assignToCategoryId,
+      };
+      localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+      
+      // Pokaż komunikat
+      alert(`✅ Sukces!\n\nUsunięto ${result.deletedCount} transakcji.\n\nStrona zostanie odświeżona.`);
+      
+      // Odśwież stronę aby załadować zaktualizowane dane
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error deleting transactions:', error);
+      alert(`❌ Błąd podczas usuwania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+    }
+  };
+  
+  // Funkcja do edycji zaznaczonych transakcji (podstawowa - alert)
+  const handleEditTransactions = () => {
+    if (selectedTransactionIds.size === 0) {
+      alert('Zaznacz co najmniej jedną transakcję');
+      return;
+    }
+    
+    // Pobierz zaznaczone transakcje
+    const selectedTransactions = getFilteredAndSortedTransactions().filter(t => 
+      selectedTransactionIds.has(t.id)
+    );
+    
+    // Dla pojedynczej transakcji - pokaż szczegóły
+    if (selectedTransactions.length === 1) {
+      const transaction = selectedTransactions[0];
+      const details = `📝 Edycja transakcji:\n\n` +
+        `ID: ${transaction.id}\n` +
+        `Data: ${formatDate(transaction.date)}\n` +
+        `Typ: ${transaction.transaction_type}\n` +
+        `Kwota: ${formatCurrency(Number(transaction.amount))} PLN\n` +
+        `Odbiorca: ${transaction.payee || '-'}\n` +
+        `Opis: ${transaction.description || '-'}\n` +
+        `Pochodzenie: ${transaction.origin || '-'}\n` +
+        `Źródło: ${transaction.source || '-'}\n\n` +
+        `⚠️ Funkcja edycji wymaga utworzenia formularza/modala.\n` +
+        `Obecnie wyświetlane są tylko szczegóły.`;
+      alert(details);
+    } else {
+      // Dla wielu transakcji
+      alert(`📝 Edycja wielu transakcji:\n\nZaznaczono: ${selectedTransactions.length} transakcji\n\n⚠️ Funkcja edycji wielu transakcji wymaga utworzenia specjalnego formularza.\n\nMożesz:\n- Zmienić kategorię (użyj funkcji przypisania)\n- Usunąć (użyj przycisku Delete)\n- Odłączyć od kategorii (użyj przycisku Unlink)`);
+    }
+  };
+  
   // Reset stanu przy zmianie toggle
   const handleToggleChange = () => {
     setShowUnassigned(!showUnassigned);
@@ -1070,22 +1225,61 @@ export default function DashboardClient({
                             </div>
                           )}
                           
+                          {/* Panel akcji dla przypisanych transakcji */}
+                          {!showUnassigned && selectedTransactionIds.size > 0 && (
+                            <div className="mb-4 p-3 bg-neutral-950 rounded-lg border border-blue-500/50">
+                              <div className="flex items-center gap-3 mb-2">
+                                <span className="text-sm text-neutral-300">
+                                  Zaznaczono: <span className="font-bold text-blue-400">{selectedTransactionIds.size}</span>
+                                </span>
+                              </div>
+                              
+                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                                <Button
+                                  onClick={handleUnlinkFromCategory}
+                                  size="sm"
+                                  className="bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                >
+                                  Unlink (Odłącz)
+                                </Button>
+                                
+                                <Button
+                                  onClick={handleDeleteTransactions}
+                                  size="sm"
+                                  className="bg-red-600 hover:bg-red-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                >
+                                  Delete (Usuń)
+                                </Button>
+                                
+                                <Button
+                                  onClick={handleEditTransactions}
+                                  size="sm"
+                                  className="bg-blue-600 hover:bg-blue-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                >
+                                  Edit (Edytuj)
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                          
                           {/* Tabela transakcji */}
                           <div className="overflow-auto flex-1">
                             <Table>
                               <TableHeader className="bg-neutral-950 sticky top-0 z-10">
                                 <TableRow className="border-b border-neutral-700">
-                                  {/* Checkbox column - tylko dla widoku nieprzypisanych */}
-                                  {showUnassigned && (
-                                    <TableHead className="w-10 text-center">
-                                      <input
-                                        type="checkbox"
-                                        checked={getFilteredAndSortedTransactions().length > 0 && selectedTransactionIds.size === getFilteredAndSortedTransactions().length}
-                                        onChange={toggleAllTransactions}
-                                        className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                                      />
-                                    </TableHead>
-                                  )}
+                                  {/* Checkbox column - dla wszystkich transakcji */}
+                                  <TableHead className="w-10 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={getFilteredAndSortedTransactions().length > 0 && selectedTransactionIds.size === getFilteredAndSortedTransactions().length}
+                                      onChange={toggleAllTransactions}
+                                      className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${
+                                        showUnassigned 
+                                          ? 'text-orange-600 focus:ring-orange-500' 
+                                          : 'text-blue-600 focus:ring-blue-500'
+                                      }`}
+                                    />
+                                  </TableHead>
                                   {[
                                     { key: 'date', label: 'Data' },
                                     { key: 'transaction_type', label: 'Typ' },
@@ -1119,17 +1313,19 @@ export default function DashboardClient({
                                       key={transaction.id || idx} 
                                       className="hover:bg-neutral-800/50 border-b border-neutral-800"
                                     >
-                                      {/* Checkbox cell - tylko dla widoku nieprzypisanych */}
-                                      {showUnassigned && (
-                                        <TableCell className="w-10 text-center">
-                                          <input
-                                            type="checkbox"
-                                            checked={selectedTransactionIds.has(transaction.id)}
-                                            onChange={() => toggleTransactionSelection(transaction.id)}
-                                            className="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-orange-600 focus:ring-2 focus:ring-orange-500 cursor-pointer"
-                                          />
-                                        </TableCell>
-                                      )}
+                                      {/* Checkbox cell - dla wszystkich transakcji */}
+                                      <TableCell className="w-10 text-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedTransactionIds.has(transaction.id)}
+                                          onChange={() => toggleTransactionSelection(transaction.id)}
+                                          className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${
+                                            showUnassigned 
+                                              ? 'text-orange-600 focus:ring-orange-500' 
+                                              : 'text-blue-600 focus:ring-blue-500'
+                                          }`}
+                                        />
+                                      </TableCell>
                                       <TableCell className="text-xs whitespace-nowrap">
                                         {formatDate(transaction.date)}
                                       </TableCell>
@@ -1163,7 +1359,7 @@ export default function DashboardClient({
                                   ))
                                 ) : (
                                   <TableRow>
-                                    <TableCell colSpan={showUnassigned ? 8 : 7} className="text-center text-neutral-500 py-8">
+                                    <TableCell colSpan={8} className="text-center text-neutral-500 py-8">
                                       {showUnassigned ? 'Brak nieprzypisanych transakcji w tym miesiącu' : 'Brak transakcji do wyświetlenia'}
                                     </TableCell>
                                   </TableRow>
