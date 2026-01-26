@@ -1136,109 +1136,105 @@ export default function DashboardClient({
                       
                       {/* Rozszerzona sekcja - widoczna po kliknięciu expand */}
                       {isCellInfoExpanded && (
-                        <div className="mt-4 p-4 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(65vh - 180px)' }}>
-                          {/* TOGGLE BUTTON - przed nagłówkiem Transakcje */}
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-4">
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                              <h3 className="text-base sm:text-lg font-semibold text-white">
-                                Transakcje ({getFilteredAndSortedTransactions().length})
-                              </h3>
-                              
-                              {/* Toggle Button */}
-                              <div className="flex items-center gap-2 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
-                                <button
-                                  onClick={handleToggleChange}
-                                  className={`px-3 py-2 sm:py-1 rounded text-xs font-medium transition-all touch-manipulation ${
-                                    !showUnassigned 
-                                      ? 'bg-blue-600 text-white' 
-                                      : 'text-neutral-400 hover:text-white'
-                                  }`}
-                                >
-                                  Przypisane
-                                </button>
-                                <button
-                                  onClick={handleToggleChange}
-                                  className={`px-3 py-2 sm:py-1 rounded text-xs font-medium transition-all touch-manipulation ${
-                                    showUnassigned 
-                                      ? 'bg-orange-600 text-white' 
-                                      : 'text-neutral-400 hover:text-white'
-                                  }`}
-                                >
-                                  Nieprzypisane
-                                </button>
-                              </div>
+                        <div className="mt-4 p-3 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(65vh - 120px)' }}>
+                          {/* TOGGLE BUTTON + FILTER na jednej linii */}
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+                            {/* Toggle Button */}
+                            <div className="flex items-center gap-1 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
+                              <button
+                                onClick={handleToggleChange}
+                                className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${
+                                  !showUnassigned 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'text-neutral-400 hover:text-white'
+                                }`}
+                              >
+                                Przypisane
+                              </button>
+                              <button
+                                onClick={handleToggleChange}
+                                className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${
+                                  showUnassigned 
+                                    ? 'bg-orange-600 text-white' 
+                                    : 'text-neutral-400 hover:text-white'
+                                }`}
+                              >
+                                Nieprzypisane
+                              </button>
                             </div>
                             
-                            {/* Pole filtrowania */}
+                            {/* Pole filtrowania w tym samym wierszu */}
                             <input
                               type="text"
-                              placeholder="Filtruj transakcje..."
+                              placeholder="Filtruj..."
                               value={transactionFilter}
                               onChange={(e) => setTransactionFilter(e.target.value)}
-                              className="h-10 sm:h-8 px-3 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-64"
+                              className="flex-1 h-9 px-2 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                           
                           {/* Panel przypisywania kategorii - tylko dla widoku nieprzypisanych */}
                           {showUnassigned && selectedTransactionIds.size > 0 && (
-                            <div className="mb-4 p-3 bg-neutral-950 rounded-lg border border-orange-500/50">
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className="text-sm text-neutral-300">
+                            <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-orange-500/50">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs text-neutral-300">
                                   Zaznaczono: <span className="font-bold text-orange-400">{selectedTransactionIds.size}</span>
                                 </span>
                               </div>
                               
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                              <div className="flex flex-col gap-2">
                                 {/* Pole wyszukiwania kategorii */}
                                 <input
                                   type="text"
                                   placeholder="Szukaj kategorii..."
                                   value={categorySearchFilter}
                                   onChange={(e) => setCategorySearchFilter(e.target.value)}
-                                  className="h-12 sm:h-8 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full sm:w-48 touch-manipulation"
+                                  className="h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full touch-manipulation"
                                 />
                                 
-                                {/* Dropdown z posortowanymi i przefiltrowanymi kategoriami */}
-                                <select
-                                  value={assignToCategoryId}
-                                  onChange={(e) => setAssignToCategoryId(e.target.value)}
-                                  className="flex-1 h-12 sm:h-8 px-3 py-2 bg-neutral-900 border border-neutral-700 rounded text-sm text-white focus:outline-none focus:ring-2 focus:ring-orange-500 touch-manipulation"
-                                  size={1}
-                                >
-                                  <option value="">Wybierz kategorię...</option>
-                                  {getFilteredAndSortedCategories().map((cat: any) => (
-                                    <option key={cat.id} value={cat.id}>
-                                      {getCategoryPath(cat.id).join(' → ')}
-                                    </option>
-                                  ))}
-                                </select>
-                                
-                                <Button
-                                  onClick={handleAssignToCategory}
-                                  disabled={!assignToCategoryId}
-                                  size="sm"
-                                  className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation min-h-[44px] sm:min-h-0"
-                                >
-                                  Przypisz
-                                </Button>
+                                <div className="flex gap-2">
+                                  {/* Dropdown z posortowanymi i przefiltrowanymi kategoriami */}
+                                  <select
+                                    value={assignToCategoryId}
+                                    onChange={(e) => setAssignToCategoryId(e.target.value)}
+                                    className="flex-1 h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 touch-manipulation"
+                                    size={1}
+                                  >
+                                    <option value="">Wybierz...</option>
+                                    {getFilteredAndSortedCategories().map((cat: any) => (
+                                      <option key={cat.id} value={cat.id}>
+                                        {getCategoryPath(cat.id).join(' → ')}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  
+                                  <Button
+                                    onClick={handleAssignToCategory}
+                                    disabled={!assignToCategoryId}
+                                    size="sm"
+                                    className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation h-9 px-3 text-xs"
+                                  >
+                                    Przypisz
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           )}
                           
-                          {/* Panel akcji dla przypisanych transakcji */}
+                          {/* Panel akcji dla przypisanych transakcji - PRZYCISKI W JEDNYM WIERSZU */}
                           {!showUnassigned && selectedTransactionIds.size > 0 && (
-                            <div className="mb-4 p-3 bg-neutral-950 rounded-lg border border-blue-500/50">
-                              <div className="flex items-center gap-3 mb-2">
-                                <span className="text-sm text-neutral-300">
+                            <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-blue-500/50">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs text-neutral-300">
                                   Zaznaczono: <span className="font-bold text-blue-400">{selectedTransactionIds.size}</span>
                                 </span>
                               </div>
                               
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                              <div className="flex items-stretch gap-2">
                                 <Button
                                   onClick={handleUnlinkFromCategory}
                                   size="sm"
-                                  className="bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation h-9 px-2 text-xs"
                                 >
                                   Unlink (Odłącz)
                                 </Button>
@@ -1246,7 +1242,7 @@ export default function DashboardClient({
                                 <Button
                                   onClick={handleDeleteTransactions}
                                   size="sm"
-                                  className="bg-red-600 hover:bg-red-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                  className="flex-1 bg-red-600 hover:bg-red-700 text-white touch-manipulation h-9 px-2 text-xs"
                                 >
                                   Delete (Usuń)
                                 </Button>
@@ -1254,7 +1250,7 @@ export default function DashboardClient({
                                 <Button
                                   onClick={handleEditTransactions}
                                   size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700 text-white touch-manipulation min-h-[44px] sm:min-h-0"
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white touch-manipulation h-9 px-2 text-xs"
                                 >
                                   Edit (Edytuj)
                                 </Button>
