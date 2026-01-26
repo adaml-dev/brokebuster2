@@ -184,6 +184,36 @@ export default function DashboardClient({
                   setCategoryFilter(parsed.categoryFilter);
               }
               
+              // Przywróć stan panelu transakcji
+              if (parsed.clickedCell) {
+                  // Odtwórz clickedCell - musimy ponownie pobrać transakcje z bazy
+                  const categoryId = parsed.clickedCell.categoryId;
+                  const monthKey = parsed.clickedCell.monthKey;
+                  const monthLabel = parsed.clickedCell.monthLabel;
+                  
+                  // Wywołaj handleCellClick aby odtworzyć pełny stan
+                  setTimeout(() => {
+                      handleCellClick(categoryId, monthKey, monthLabel);
+                      
+                      // Przywróć pozostałe ustawienia panelu
+                      if (typeof parsed.isCellInfoExpanded === 'boolean') {
+                          setIsCellInfoExpanded(parsed.isCellInfoExpanded);
+                      }
+                      if (typeof parsed.showUnassigned === 'boolean') {
+                          setShowUnassigned(parsed.showUnassigned);
+                      }
+                      if (parsed.transactionFilter) {
+                          setTransactionFilter(parsed.transactionFilter);
+                      }
+                      if (parsed.categorySearchFilter) {
+                          setCategorySearchFilter(parsed.categorySearchFilter);
+                      }
+                      if (parsed.assignToCategoryId) {
+                          setAssignToCategoryId(parsed.assignToCategoryId);
+                      }
+                  }, 100);
+              }
+              
               // Wyczyść zapisany stan po przywróceniu (jednorazowe użycie)
               localStorage.removeItem('dashboardState');
               
@@ -504,11 +534,18 @@ export default function DashboardClient({
         throw new Error(result.error || 'Failed to assign category');
       }
 
-      // Sukces - zapisz stan przed odświeżeniem
+      // Sukces - zapisz pełny stan przed odświeżeniem
       const stateToSave = {
         expandedCats: Array.from(expandedCats),
         monthOffset: monthOffset,
         categoryFilter: categoryFilter,
+        // Stan panelu transakcji
+        clickedCell: clickedCell,
+        isCellInfoExpanded: isCellInfoExpanded,
+        showUnassigned: showUnassigned,
+        transactionFilter: transactionFilter,
+        categorySearchFilter: categorySearchFilter,
+        assignToCategoryId: assignToCategoryId,
       };
       localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
       
