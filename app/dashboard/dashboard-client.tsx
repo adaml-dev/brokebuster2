@@ -153,15 +153,62 @@ export default function DashboardClient({
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [assignToCategoryId, setAssignToCategoryId] = useState<string>('');
   const [categorySearchFilter, setCategorySearchFilter] = useState<string>('');
+  
+  // Flaga wskazująca czy stan został już załadowany
+  const [stateLoaded, setStateLoaded] = useState(false);
 
-  // Efekt: Na starcie załaduj stan "is_expanded" z bazy danych
+  // Efekt: Na starcie załaduj stan z localStorage lub z bazy danych
   useEffect(() => {
-      const initialExpanded = new Set<string>();
-      categories.forEach(c => {
-          if (c.is_expanded) initialExpanded.add(c.id);
-      });
-      setExpandedCats(initialExpanded);
-  }, [categories]);
+      // Wykonuj tylko raz
+      if (stateLoaded || categories.length === 0) return;
+      
+      // Spróbuj załadować zapisany stan z localStorage
+      const savedState = localStorage.getItem('dashboardState');
+      
+      if (savedState) {
+          try {
+              const parsed = JSON.parse(savedState);
+              
+              // Przywróć rozwinięte kategorie
+              if (parsed.expandedCats) {
+                  setExpandedCats(new Set(parsed.expandedCats));
+              }
+              
+              // Przywróć offset miesięcy
+              if (typeof parsed.monthOffset === 'number') {
+                  setMonthOffset(parsed.monthOffset);
+              }
+              
+              // Przywróć filtr kategorii
+              if (parsed.categoryFilter) {
+                  setCategoryFilter(parsed.categoryFilter);
+              }
+              
+              // Wyczyść zapisany stan po przywróceniu (jednorazowe użycie)
+              localStorage.removeItem('dashboardState');
+              
+          } catch (error) {
+              console.error('Error parsing saved dashboard state:', error);
+              // Jeśli błąd parsowania, załaduj domyślny stan
+              const initialExpanded = new Set<string>();
+              categories.forEach(c => {
+                  if (c.is_expanded) initialExpanded.add(c.id);
+              });
+              setExpandedCats(initialExpanded);
+          }
+      } else {
+          // Jeśli nie ma zapisanego stanu, załaduj domyślny z bazy danych
+          const initialExpanded = new Set<string>();
+          categories.forEach(c => {
+              if (c.is_expanded) initialExpanded.add(c.id);
+          });
+          setExpandedCats(initialExpanded);
+      }
+      
+      // Oznacz stan jako załadowany
+      setStateLoaded(true);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length, stateLoaded]);
   
   // Efekt: Automatycznie wybierz pierwszą kategorię z przefiltrowanej listy
   useEffect(() => {
@@ -420,25 +467,61 @@ export default function DashboardClient({
   };
   
   // Funkcja do przypisywania zaznaczonych transakcji do kategorii
-  const handleAssignToCategory = () => {
+  const handleAssignToCategory = async () => {
     if (!assignToCategoryId || selectedTransactionIds.size === 0) {
       alert('Wybierz kategorię i zaznacz co najmniej jedną transakcję');
       return;
     }
     
-    // Tu powinna być logika zapisywania do bazy danych
-    console.log('Przypisywanie transakcji:', {
-      transactionIds: Array.from(selectedTransactionIds),
-      categoryId: assignToCategoryId
-    });
+    // Znajdź nazwę kategorii dla użytkownika
+    const selectedCategory = categories.find(c => c.id === assignToCategoryId);
+    const categoryPath = selectedCategory ? getCategoryPath(assignToCategoryId).join(' → ') : assignToCategoryId;
     
-    // TODO: Wywołać API do aktualizacji transakcji w bazie danych
-    alert(`Przypisano ${selectedTransactionIds.size} transakcji do kategorii. (Funkcja wymaga implementacji API)`);
+    // Pokaż informację o rozpoczęciu procesu
+    const transactionCount = selectedTransactionIds.size;
+    const confirmMessage = `Czy na pewno chcesz przypisać ${transactionCount} transakcji do kategorii:\n"${categoryPath}"?`;
     
-    // Reset po przypisaniu
-    setSelectedTransactionIds(new Set());
-    setAssignToCategoryId('');
-    setCategorySearchFilter('');
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    try {
+      // Wywołaj API do aktualizacji transakcji
+      const response = await fetch('/api/transactions/assign-category', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionIds: Array.from(selectedTransactionIds),
+          categoryId: assignToCategoryId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to assign category');
+      }
+
+      // Sukces - zapisz stan przed odświeżeniem
+      const stateToSave = {
+        expandedCats: Array.from(expandedCats),
+        monthOffset: monthOffset,
+        categoryFilter: categoryFilter,
+      };
+      localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+      
+      // Pokaż komunikat
+      alert(`✅ Sukces!\n\nPrzypisano ${result.updatedCount} transakcji do kategorii:\n"${categoryPath}"\n\nStrona zostanie odświeżona.`);
+      
+      // Odśwież stronę aby załadować zaktualizowane dane
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error assigning category:', error);
+      alert(`❌ Błąd podczas przypisywania kategorii:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+    }
   };
   
   // Reset stanu przy zmianie toggle
