@@ -455,7 +455,7 @@ export default function DashboardClient({
   // Funkcja do filtrowania i sortowania kategorii dla dropdown
   const getFilteredAndSortedCategories = () => {
     // Funkcja pomocnicza do sprawdzania czy kategoria lub jej dzieci pasują do filtra
-    const categoryMatchesFilter = (cat: typeof categories[0], searchTerm: string): boolean => {
+    const categoryMatchesFilter = (cat: any, searchTerm: string): boolean => {
       if (!searchTerm) return true;
       
       const lowerSearch = searchTerm.toLowerCase();
@@ -730,7 +730,7 @@ export default function DashboardClient({
     const currentMonthKey = getMonthKey(today);
 
     // 1. Kolumny
-    const columns = [];
+    const columns: Array<{ date: Date; key: string; label: string }> = [];
     for (let i = 0; i < 12; i++) {
       const d = new Date(selectedYear, 0 + monthOffset + i, 1);
       columns.push({
@@ -766,10 +766,10 @@ export default function DashboardClient({
 
     // 3. Budowa drzewa
     const sortedCats = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
-    const buildTree = (parentId: string | null) => {
+    const buildTree = (parentId: string | null): any[] => {
       return sortedCats
-        .filter(c => c.parent === parentId)
-        .map(c => ({
+        .filter((c): c is typeof categories[0] => c.parent === parentId)
+        .map((c): any => ({
           ...c,
           children: buildTree(c.id)
         }));
@@ -798,7 +798,7 @@ export default function DashboardClient({
         if (node.children && node.children.length > 0) {
             node.children.forEach((child: any) => {
                 const childTotals = calculateTotals(child);
-                columns.forEach(col => {
+                columns.forEach((col: { key: string }) => {
                     nodeTotals[col.key] += childTotals[col.key];
                 });
             });
@@ -810,12 +810,12 @@ export default function DashboardClient({
     };
 
     // Uruchom obliczanie dla wszystkich głównych gałęzi
-    categoryTree.forEach(rootNode => calculateTotals(rootNode));
+    categoryTree.forEach((rootNode: any) => calculateTotals(rootNode));
 
     // 5. OBLICZ MONTHLY TOTALS - suma wszystkich transakcji dla każdego miesiąca
     // WAŻNE: Respektujemy shouldIncludeTransaction logic
     const monthlyTotals: Record<string, number> = {};
-    columns.forEach(col => monthlyTotals[col.key] = 0);
+    columns.forEach((col: { key: string }) => monthlyTotals[col.key] = 0);
 
     transactions.forEach(t => {
         if (shouldIncludeTransaction(t, currentMonthKey)) {
@@ -842,7 +842,7 @@ export default function DashboardClient({
     const allMonthlyTotals: Record<string, number> = {};
     if (oldestDate !== null) {
         // Stwórz tablicę wszystkich miesięcy od najstarszej daty do końca widocznych kolumn
-        const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
+        const startDate = new Date((oldestDate as Date).getFullYear(), (oldestDate as Date).getMonth(), 1);
         const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
         
         let currentDate = new Date(startDate);
@@ -868,7 +868,7 @@ export default function DashboardClient({
     let runningTotal = 0;
     
     if (oldestDate !== null) {
-        const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
+        const startDate = new Date((oldestDate as Date).getFullYear(), (oldestDate as Date).getMonth(), 1);
         const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
         
         let currentDate = new Date(startDate);
