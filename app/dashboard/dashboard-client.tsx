@@ -36,7 +36,8 @@ import {
   ChevronRight as ChevronRightIcon,
   Circle,
   Minimize2,
-  Maximize2
+  Maximize2,
+  Filter
 } from "lucide-react";
 import {
   Sheet,
@@ -146,6 +147,7 @@ export default function DashboardClient({
   
   // STAN FILTROWANIA KATEGORII
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   
   // STAN KLIKNIĘTEJ KOMÓRKI
   const [clickedCell, setClickedCell] = useState<CellInfo | null>(null);
@@ -1494,14 +1496,15 @@ export default function DashboardClient({
                   </div>
                 )}
                 
-                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-start pb-4 gap-3">
-                    {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
-                    <div className="flex items-center gap-2">
+                <CardHeader className="flex flex-col py-2 gap-2">
+                    {/* WSZYSTKIE PRZYCISKI W JEDNYM WIERSZU */}
+                    <div className="flex items-center gap-1 overflow-x-auto pb-1">
+                        {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={expandAllByOneLevel}
-                            className="h-12 w-12 sm:h-10 sm:w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation"
                             title="Rozwiń o jeden poziom"
                         >
                             <Maximize2 className="h-5 w-5 text-neutral-400" />
@@ -1511,79 +1514,87 @@ export default function DashboardClient({
                             variant="outline"
                             size="icon"
                             onClick={collapseAllByOneLevel}
-                            className="h-12 w-12 sm:h-10 sm:w-10 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-orange-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-orange-500 transition-colors touch-manipulation"
                             title="Zwiń o jeden poziom"
                         >
                             <Minimize2 className="h-5 w-5 text-neutral-400" />
                         </Button>
-                    </div>
-                    
-                    {/* POLE FILTROWANIA KATEGORII */}
-                    <input
-                        type="text"
-                        placeholder="Filtruj kategorie..."
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="h-12 sm:h-10 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full sm:w-48"
-                    />
-                    
-                    {/* PRZYCISKI NAWIGACYJNE */}
-                    <div className="flex items-center justify-center md:justify-start gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                        {/* -12 miesięcy */}
+                        
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setShowCategoryFilter(!showCategoryFilter)}
+                            className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-purple-500 transition-colors touch-manipulation ${showCategoryFilter ? 'bg-purple-900 border-purple-500' : ''}`}
+                            title="Filtruj kategorie"
+                        >
+                            <Filter className="h-5 w-5 text-neutral-400" />
+                        </Button>
+                        
+                        {/* SEPARADOR (opcjonalnie) */}
+                        <div className="w-px h-6 bg-neutral-700 mx-1"></div>
+                        
+                        {/* PRZYCISKI NAWIGACYJNE */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m - 12)}
-                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="-12 miesięcy"
                         >
                             <ChevronsLeft className="h-5 w-5 text-neutral-400" />
                         </Button>
                         
-                        {/* -1 miesiąc */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m - 1)}
-                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="-1 miesiąc"
                         >
                             <ChevronLeft className="h-5 w-5 text-neutral-400" />
                         </Button>
                         
-                        {/* Obecny miesiąc (kółko) */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(0)}
-                            className={`h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''}`}
+                            className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''}`}
                             title="Obecny miesiąc"
                         >
                             <Circle className={`h-5 w-5 ${monthOffset === 0 ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
                         </Button>
                         
-                        {/* +1 miesiąc */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m + 1)}
-                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="+1 miesiąc"
                         >
                             <ChevronRightIcon className="h-5 w-5 text-neutral-400" />
                         </Button>
                         
-                        {/* +12 miesięcy */}
                         <Button
                             variant="outline"
                             size="icon"
                             onClick={() => setMonthOffset(m => m + 12)}
-                            className="h-12 w-12 sm:h-10 sm:w-10 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
                             title="+12 miesięcy"
                         >
                             <ChevronsRight className="h-5 w-5 text-neutral-400" />
                         </Button>
                     </div>
+                    
+                    {/* POLE FILTROWANIA KATEGORII - poniżej przycisków, pełna szerokość */}
+                    {showCategoryFilter && (
+                        <input
+                            type="text"
+                            placeholder="Filtruj kategorie..."
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="h-8 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-lg text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                        />
+                    )}
                 </CardHeader>
                 
                 <CardContent className="flex-1 overflow-auto p-0 relative">
