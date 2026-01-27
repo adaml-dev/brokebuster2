@@ -154,13 +154,20 @@ export default function DashboardClient({
   const [assignToCategoryId, setAssignToCategoryId] = useState<string>('');
   const [categorySearchFilter, setCategorySearchFilter] = useState<string>('');
   
-  // Flaga wskazująca czy stan został już załadowany
-  const [stateLoaded, setStateLoaded] = useState(false);
+  // Flaga wskazująca czy stan został już załadowany - używamy ref aby uniknąć re-renderów
+  const stateLoadedRef = React.useRef(false);
 
   // Efekt: Na starcie załaduj stan z localStorage lub z bazy danych
   useEffect(() => {
-      // Wykonuj tylko raz
-      if (stateLoaded || categories.length === 0) return;
+      // Wykonuj tylko raz - używamy ref zamiast state
+      if (stateLoadedRef.current || categories.length === 0) {
+          console.log('⏭️ Skipping state load - already loaded or no categories');
+          return;
+      }
+      
+      // Oznacz że rozpoczęliśmy ładowanie (przed jakimkolwiek async kodem)
+      stateLoadedRef.current = true;
+      console.log('🚀 Starting state load...');
       
       // Spróbuj załadować zapisany stan z localStorage
       const savedState = localStorage.getItem('dashboardState');
@@ -169,8 +176,11 @@ export default function DashboardClient({
           try {
               const parsed = JSON.parse(savedState);
               
+              console.log('🔄 Restoring dashboard state:', parsed);
+              
               // Przywróć rozwinięte kategorie
-              if (parsed.expandedCats) {
+              if (parsed.expandedCats && Array.isArray(parsed.expandedCats)) {
+                  console.log('📂 Restoring expanded categories:', parsed.expandedCats);
                   setExpandedCats(new Set(parsed.expandedCats));
               }
               
@@ -211,14 +221,22 @@ export default function DashboardClient({
                       if (parsed.assignToCategoryId) {
                           setAssignToCategoryId(parsed.assignToCategoryId);
                       }
+                      // Przywróć sortowanie
+                      if (parsed.sortColumn) {
+                          setSortColumn(parsed.sortColumn);
+                      }
+                      if (parsed.sortDirection) {
+                          setSortDirection(parsed.sortDirection);
+                      }
                   }, 100);
               }
               
               // Wyczyść zapisany stan po przywróceniu (jednorazowe użycie)
               localStorage.removeItem('dashboardState');
+              console.log('✅ Dashboard state restored and cleared from localStorage');
               
           } catch (error) {
-              console.error('Error parsing saved dashboard state:', error);
+              console.error('❌ Error parsing saved dashboard state:', error);
               // Jeśli błąd parsowania, załaduj domyślny stan
               const initialExpanded = new Set<string>();
               categories.forEach(c => {
@@ -227,6 +245,7 @@ export default function DashboardClient({
               setExpandedCats(initialExpanded);
           }
       } else {
+          console.log('ℹ️ No saved state found, loading default from database');
           // Jeśli nie ma zapisanego stanu, załaduj domyślny z bazy danych
           const initialExpanded = new Set<string>();
           categories.forEach(c => {
@@ -235,10 +254,9 @@ export default function DashboardClient({
           setExpandedCats(initialExpanded);
       }
       
-      // Oznacz stan jako załadowany
-      setStateLoaded(true);
+      console.log('✅ State loading completed');
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories.length, stateLoaded]);
+  }, [categories.length]);
   
   // Efekt: Automatycznie wybierz pierwszą kategorię z przefiltrowanej listy
   useEffect(() => {
@@ -546,6 +564,9 @@ export default function DashboardClient({
         transactionFilter: transactionFilter,
         categorySearchFilter: categorySearchFilter,
         assignToCategoryId: assignToCategoryId,
+        // Stan sortowania
+        sortColumn: sortColumn,
+        sortDirection: sortDirection,
       };
       localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
       
@@ -604,8 +625,24 @@ export default function DashboardClient({
         transactionFilter: transactionFilter,
         categorySearchFilter: categorySearchFilter,
         assignToCategoryId: assignToCategoryId,
+        // Stan sortowania
+        sortColumn: sortColumn,
+        sortDirection: sortDirection,
       };
+      
+      console.log('💾 Saving state before reload (unlink):', stateToSave);
+      console.log('📂 Expanded categories to save:', Array.from(expandedCats));
+      console.log('🔀 Sort settings to save:', { sortColumn, sortDirection });
+      
       localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+      
+      // Weryfikacja zapisu
+      const savedCheck = localStorage.getItem('dashboardState');
+      console.log('✓ Verification - state saved to localStorage:', savedCheck ? 'YES' : 'NO');
+      if (savedCheck) {
+        const parsed = JSON.parse(savedCheck);
+        console.log('✓ Expanded cats in saved state:', parsed.expandedCats);
+      }
       
       // Pokaż komunikat
       alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.\n\nStrona zostanie odświeżona.`);
@@ -668,6 +705,9 @@ export default function DashboardClient({
         transactionFilter: transactionFilter,
         categorySearchFilter: categorySearchFilter,
         assignToCategoryId: assignToCategoryId,
+        // Stan sortowania
+        sortColumn: sortColumn,
+        sortDirection: sortDirection,
       };
       localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
       
