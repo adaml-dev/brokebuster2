@@ -39,6 +39,14 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [assignToCategoryId, setAssignToCategoryId] = useState<string>('');
   const [categorySearchFilter, setCategorySearchFilter] = useState<string>('');
+
+  // Efekt: Wyczyść zaznaczone transakcje, gdy zmieniają się filtry
+  useEffect(() => {
+    // Działaj tylko po pierwszym załadowaniu stanu
+    if (stateLoadedRef.current) {
+      setSelectedTransactionIds(new Set());
+    }
+  }, [transactionFilter, showUnassigned]);
   
   // Flaga wskazująca czy stan został już załadowany
   const stateLoadedRef = useRef(false);
@@ -87,6 +95,7 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     setTransactionFilter('');
     setSortColumn('date');
     setSortDirection('desc');
+    setSelectedTransactionIds(new Set()); // Czyszczenie zaznaczonych transakcji
   }, [categories, transactions]);
 
   // Toggle kategoria

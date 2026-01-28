@@ -192,10 +192,22 @@ export default function DashboardClient({
   
   const handleToggleUnassigned = () => {
     dashboardState.setShowUnassigned(!dashboardState.showUnassigned);
-    dashboardState.setSelectedTransactionIds(new Set());
+    // UWAGA: czyszczenie IDшек transakcji jest teraz w hooku useDashboardState
+    // setSelectedTransactionIds(new Set());
     dashboardState.setAssignToCategoryId('');
     dashboardState.setTransactionFilter('');
   };
+
+  // Efekt czyszczący zaznaczenie transakcji przy zmianie filtrów
+  React.useEffect(() => {
+    // Ten useEffect jest teraz w hooku useDashboardState
+    // dashboardState.setSelectedTransactionIds(new Set());
+  }, [
+    dashboardState.transactionFilter, 
+    dashboardState.sortColumn, 
+    dashboardState.sortDirection,
+    dashboardState.showUnassigned,
+  ]);
 
   const handleEditTransactions = () => {
     if (dashboardState.selectedTransactionIds.size === 0) {
