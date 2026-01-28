@@ -88,33 +88,12 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
         {/* Nagłówek */}
         <div className="flex flex-col items-stretch gap-2 mb-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-white font-semibold truncate">
+            <p className="text-sm text-white font-semibold">
               <span className="text-neutral-400">{clickedCell.monthKey}:</span>{' '}
               <span className="text-blue-400">{clickedCell.categoryPath.join(' / ')}</span> ={' '}
               <span className="text-green-400">{formatCurrency(clickedCell.doneSum)}zł Done ({clickedCell.doneCount}tr)</span> |{' '}
               <span className="text-yellow-400">{formatCurrency(clickedCell.plannedSum)}zł Planned ({clickedCell.plannedCount}tr)</span>
             </p>
-          </div>
-          <div className="flex gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onToggleExpand}
-              className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
-              title={isCellInfoExpanded ? "Zwiń" : "Rozwiń"}
-            >
-              {isCellInfoExpanded ? <Minimize2 className="h-5 w-5 text-neutral-400" /> : <ArrowDownToLine className="h-5 w-5 text-neutral-400" />}
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onOpenManualEntry}
-              className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation"
-              title="Dodaj transakcję"
-            >
-              <Plus className="h-5 w-5 text-neutral-400" />
-            </Button>
           </div>
         </div>
         

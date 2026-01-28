@@ -14,6 +14,8 @@ import {
   Minimize2,
   Maximize2,
   Filter,
+  Plus,
+  ArrowDownToLine,
 } from "lucide-react";
 
 interface ToolBarProps {
@@ -25,6 +27,9 @@ interface ToolBarProps {
   onCategoryFilterChange: (filter: string) => void;
   showCategoryFilter: boolean;
   onToggleCategoryFilter: () => void;
+  isCellInfoExpanded: boolean;
+  onToggleExpand: () => void;
+  onOpenManualEntry: () => void;
 }
 
 export const ToolBar: React.FC<ToolBarProps> = ({
@@ -36,11 +41,56 @@ export const ToolBar: React.FC<ToolBarProps> = ({
   onCategoryFilterChange,
   showCategoryFilter,
   onToggleCategoryFilter,
+  isCellInfoExpanded,
+  onToggleExpand,
+  onOpenManualEntry,
 }) => {
   return (
     <div className="flex flex-col py-2 gap-2">
       {/* WSZYSTKIE PRZYCISKI W JEDNYM WIERSZU */}
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onToggleExpand}
+          className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+          title={isCellInfoExpanded ? "Zwiń" : "Rozwiń"}
+        >
+          {isCellInfoExpanded ? (
+            <Minimize2 className="h-5 w-5 text-neutral-400" />
+          ) : (
+            <ArrowDownToLine className="h-5 w-5 text-neutral-400" />
+          )}
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onOpenManualEntry}
+          className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation relative"
+          title="Dodaj transakcję"
+        >
+          <Plus className="h-4 w-4 text-neutral-400 absolute top-1 left-1" />
+          <span className="absolute bottom-1 right-1 text-xs font-bold text-neutral-400">
+            T
+          </span>
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            /* Placeholder */
+          }}
+          className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-yellow-500 transition-colors touch-manipulation relative"
+          title="Dodaj kategorię"
+        >
+          <Plus className="h-4 w-4 text-neutral-400 absolute top-1 left-1" />
+          <span className="absolute bottom-1 right-1 text-xs font-bold text-neutral-400">
+            K
+          </span>
+        </Button>
+        {/* SEPARADOR */}
+        <div className="w-px h-6 bg-neutral-700 mx-1"></div>
         {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
         <Button
           variant="outline"
@@ -130,7 +180,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
           <ChevronsRight className="h-5 w-5 text-neutral-400" />
         </Button>
       </div>
-      
+
       {/* POLE FILTROWANIA KATEGORII - poniżej przycisków, pełna szerokość */}
       {showCategoryFilter && (
         <input

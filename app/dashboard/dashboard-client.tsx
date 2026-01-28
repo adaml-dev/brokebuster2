@@ -419,7 +419,18 @@ export default function DashboardClient({
                 categoryFilter={dashboardState.categoryFilter}
                 onCategoryFilterChange={dashboardState.setCategoryFilter}
                 showCategoryFilter={dashboardState.showCategoryFilter}
-                onToggleCategoryFilter={() => dashboardState.setShowCategoryFilter(!dashboardState.showCategoryFilter)}
+                onToggleCategoryFilter={() =>
+                  dashboardState.setShowCategoryFilter(
+                    !dashboardState.showCategoryFilter,
+                  )
+                }
+                isCellInfoExpanded={dashboardState.isCellInfoExpanded}
+                onToggleExpand={() =>
+                  dashboardState.setIsCellInfoExpanded(
+                    !dashboardState.isCellInfoExpanded,
+                  )
+                }
+                onOpenManualEntry={handleOpenManualEntry}
               />
             </CardHeader>
             
