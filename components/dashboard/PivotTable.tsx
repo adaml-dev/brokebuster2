@@ -63,6 +63,7 @@ export const PivotTable: React.FC<PivotTableProps> = ({
               onToggleCategory={onToggleCategory}
               onCellClick={onCellClick}
               shouldShowCategory={shouldShowCategory}
+              totalValuesMap={pivotData.totalValuesMap}
             />
           );
         })}

@@ -21,6 +21,7 @@ interface CategoryRowProps {
   onToggleCategory: (catId: string) => void;
   onCellClick: (categoryId: string, monthKey: string, monthLabel: string) => void;
   shouldShowCategory: (category: Category, categoryFilter: string, categories: Category[], parentMatches?: boolean) => boolean;
+  totalValuesMap: Record<string, Record<string, number>>;
 }
 
 export const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -35,6 +36,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   onToggleCategory,
   onCellClick,
   shouldShowCategory,
+  totalValuesMap,
 }) => {
   // Sprawdź czy kategoria powinna być widoczna
   if (!shouldShowCategory(category, categoryFilter, [], parentMatches)) {
@@ -99,7 +101,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           category={child}
           depth={depth + 1}
           parentMatches={nameMatches || parentMatches}
-          values={{}} // Będzie przekazane przez PivotTable
+          values={totalValuesMap[child.id] || {}}
           columns={columns}
           isExpanded={expandedCats.has(child.id)}
           expandedCats={expandedCats}
@@ -107,6 +109,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           onToggleCategory={onToggleCategory}
           onCellClick={onCellClick}
           shouldShowCategory={shouldShowCategory}
+          totalValuesMap={totalValuesMap}
         />
       ))
     : [];
