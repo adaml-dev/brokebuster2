@@ -37,7 +37,8 @@ import {
   Circle,
   Minimize2,
   Maximize2,
-  Filter
+  Filter,
+  Plus
 } from "lucide-react";
 import {
   Sheet,
@@ -179,6 +180,37 @@ export default function DashboardClient({
     source: '',
     category: '',
   });
+  
+  // STAN DODAWANIA TRANSAKCJI MANUALNEJ (DODAJ)
+  const [isManualEntryDialogOpen, setIsManualEntryDialogOpen] = useState(false);
+  const [manualEntryFormData, setManualEntryFormData] = useState({
+    date: '',
+    transaction_type: 'planned',
+    amount: '',
+    payee: '',
+    description: '',
+    origin: 'cash',
+    category: '',
+    // Pola dla serii transakcji
+    seriesRepetitions: 1,
+    seriesIntervalMonths: 1,
+  });
+  
+  // Pobierz unikalne wartości origin z transakcji
+  const uniqueOrigins = useMemo(() => {
+    const origins = new Set<string>();
+    transactions.forEach(t => {
+      if (t.origin && t.origin.trim()) {
+        origins.add(t.origin.trim());
+      }
+    });
+    const sorted = Array.from(origins).sort();
+    // Upewnij się że "cash" jest na liście
+    if (!sorted.includes('cash')) {
+      sorted.unshift('cash');
+    }
+    return sorted;
+  }, [transactions]);
   
   // Flaga wskazująca czy stan został już załadowany - używamy ref aby uniknąć re-renderów
   const stateLoadedRef = React.useRef(false);
@@ -843,6 +875,92 @@ export default function DashboardClient({
     }
   };
   
+  // Funkcja do otwierania dialogu dodawania manualnej transakcji
+  const handleOpenManualEntry = () => {
+    if (!clickedCell) {
+      alert('Najpierw kliknij na komórkę w tabeli, aby wybrać kategorię i miesiąc');
+      return;
+    }
+    
+    // Przygotuj datę - pierwszy dzień wybranego miesiąca
+    const [year, month] = clickedCell.monthKey.split('-');
+    const firstDayOfMonth = `${year}-${month}-01`;
+    
+    // Ustaw domyślne wartości formularza
+    setManualEntryFormData({
+      date: firstDayOfMonth,
+      transaction_type: 'planned',
+      amount: '',
+      payee: '',
+      description: '',
+      origin: 'cash',
+      category: clickedCell.categoryId,
+      seriesRepetitions: 1,
+      seriesIntervalMonths: 1,
+    });
+    
+    setIsManualEntryDialogOpen(true);
+  };
+  
+  // Funkcja do zapisywania manualnie wprowadzonej transakcji
+  const handleSaveManualEntry = async () => {
+    // Walidacja
+    if (!manualEntryFormData.date || !manualEntryFormData.amount) {
+      alert('Data i kwota są wymagane');
+      return;
+    }
+    
+    try {
+      // Wywołaj API do dodania transakcji
+      const response = await fetch('/api/transactions/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(manualEntryFormData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create transaction');
+      }
+
+      // Sukces - zapisz pełny stan przed odświeżeniem
+      const stateToSave = {
+        expandedCats: Array.from(expandedCats),
+        monthOffset: monthOffset,
+        categoryFilter: categoryFilter,
+        clickedCell: clickedCell,
+        isCellInfoExpanded: isCellInfoExpanded,
+        showUnassigned: showUnassigned,
+        transactionFilter: transactionFilter,
+        categorySearchFilter: categorySearchFilter,
+        assignToCategoryId: assignToCategoryId,
+        sortColumn: sortColumn,
+        sortDirection: sortDirection,
+      };
+      localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
+      
+      // Zamknij dialog
+      setIsManualEntryDialogOpen(false);
+      
+      // Pokaż komunikat
+      const count = result.count || 1;
+      const message = count === 1 
+        ? `✅ Sukces!\n\nTransakcja została dodana.\n\nStrona zostanie odświeżona.`
+        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).\n\nStrona zostanie odświeżona.`;
+      alert(message);
+      
+      // Odśwież stronę aby załadować zaktualizowane dane
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+    }
+  };
+  
   // Reset stanu przy zmianie toggle
   const handleToggleChange = () => {
     setShowUnassigned(!showUnassigned);
@@ -1210,24 +1328,31 @@ export default function DashboardClient({
                     <div className="p-3 md:p-4 overflow-y-auto overflow-x-auto backdrop-blur-sm h-full">
                       {/* Nagłówek z przyciskiem expand */}
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 mb-3">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsCellInfoExpanded(!isCellInfoExpanded)}
-                          className="border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 flex items-center justify-center gap-2 touch-manipulation min-h-[44px]"
-                        >
-                          {isCellInfoExpanded ? (
-                            <>
-                              <Minimize2 className="h-4 w-4" />
-                              <span className="text-xs">Zwiń</span>
-                            </>
-                          ) : (
-                            <>
-                              <Maximize2 className="h-4 w-4" />
-                              <span className="text-xs">Rozwiń</span>
-                            </>
-                          )}
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setIsCellInfoExpanded(!isCellInfoExpanded)}
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
+                            title={isCellInfoExpanded ? "Zwiń" : "Rozwiń"}
+                          >
+                            {isCellInfoExpanded ? (
+                              <Minimize2 className="h-5 w-5 text-neutral-400" />
+                            ) : (
+                              <Maximize2 className="h-5 w-5 text-neutral-400" />
+                            )}
+                          </Button>
+                          
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleOpenManualEntry}
+                            className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation"
+                            title="Dodaj transakcję"
+                          >
+                            <Plus className="h-5 w-5 text-neutral-400" />
+                          </Button>
+                        </div>
                         
                         <div className="flex-1 min-w-0">
                           {/* Podstawowe informacje - zawsze widoczne */}
@@ -1819,6 +1944,253 @@ export default function DashboardClient({
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Zapisz zmiany
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* MANUAL ENTRY DIALOG (DODAJ) */}
+      <Dialog open={isManualEntryDialogOpen} onOpenChange={setIsManualEntryDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-green-400">➕ DODAJ transakcję</DialogTitle>
+            <DialogDescription>
+              Wypełnij pola aby dodać nową transakcję. Kategoria i miesiąc są wstępnie wypełnione na podstawie zaznaczonej komórki (możesz je zmienić).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            {/* Wiersz 1: Data i Typ */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="manual-date" className="text-neutral-300">
+                  Data *
+                </Label>
+                <Input
+                  id="manual-date"
+                  type="date"
+                  value={manualEntryFormData.date}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, date: e.target.value})}
+                  className="mt-1 bg-neutral-800 border-neutral-700 text-white"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="manual-type" className="text-neutral-300">
+                  Typ
+                </Label>
+                <select
+                  id="manual-type"
+                  value={manualEntryFormData.transaction_type}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, transaction_type: e.target.value})}
+                  className="mt-1 w-full h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="planned">Planned</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Wiersz 2: Kwota i Kategoria */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="manual-amount" className="text-neutral-300">
+                  Kwota *
+                </Label>
+                <Input
+                  id="manual-amount"
+                  type="number"
+                  step="0.01"
+                  value={manualEntryFormData.amount}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, amount: e.target.value})}
+                  className="mt-1 bg-neutral-800 border-neutral-700 text-white"
+                  placeholder="np. -150.00"
+                  required
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="manual-category" className="text-neutral-300">
+                  Kategoria
+                </Label>
+                <select
+                  id="manual-category"
+                  value={manualEntryFormData.category}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, category: e.target.value})}
+                  className="mt-1 w-full h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Brak kategorii</option>
+                  {categories.filter(cat => cat.parent !== null && !cat.is_expanded).map((cat: any) => (
+                    <option key={cat.id} value={cat.id}>
+                      {getCategoryPath(cat.id).join(' → ')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            {/* Wiersz 3: Odbiorca i Opis */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="manual-payee" className="text-neutral-300">
+                  Odbiorca
+                </Label>
+                <Input
+                  id="manual-payee"
+                  value={manualEntryFormData.payee}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, payee: e.target.value})}
+                  className="mt-1 bg-neutral-800 border-neutral-700 text-white"
+                  placeholder="np. Sklep spożywczy"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="manual-description" className="text-neutral-300">
+                  Opis
+                </Label>
+                <Input
+                  id="manual-description"
+                  value={manualEntryFormData.description}
+                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, description: e.target.value})}
+                  className="mt-1 bg-neutral-800 border-neutral-700 text-white"
+                  placeholder="np. Zakupy tygodniowe"
+                />
+              </div>
+            </div>
+            
+            {/* Wiersz 4: Pochodzenie */}
+            <div>
+              <Label htmlFor="manual-origin" className="text-neutral-300">
+                Pochodzenie
+              </Label>
+              <select
+                id="manual-origin"
+                value={manualEntryFormData.origin}
+                onChange={(e) => setManualEntryFormData({...manualEntryFormData, origin: e.target.value})}
+                className="mt-1 w-full h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                {uniqueOrigins.map((origin) => (
+                  <option key={origin} value={origin}>
+                    {origin}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            {/* SEKCJA SERII TRANSAKCJI */}
+            <div className="border-t border-neutral-700 pt-4 mt-2">
+              <h3 className="text-sm font-medium text-neutral-300 mb-3">Seria transakcji (opcjonalne)</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                {/* Liczba powtórzeń */}
+                <div>
+                  <Label className="text-sm text-neutral-400 mb-2 block">
+                    Liczba powtórzeń
+                  </Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setManualEntryFormData({...manualEntryFormData, seriesRepetitions: Math.max(1, manualEntryFormData.seriesRepetitions - 1)})}
+                      className="h-8 w-8 p-0 bg-neutral-700 hover:bg-neutral-600"
+                    >
+                      -
+                    </Button>
+                    <span className="text-white font-bold text-lg min-w-[40px] text-center">
+                      {manualEntryFormData.seriesRepetitions}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setManualEntryFormData({...manualEntryFormData, seriesRepetitions: manualEntryFormData.seriesRepetitions + 1})}
+                      className="h-8 w-8 p-0 bg-neutral-700 hover:bg-neutral-600"
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {[1, 2, 3, 4, 6, 9, 12, 18, 24].map(num => (
+                      <Button
+                        key={num}
+                        type="button"
+                        size="sm"
+                        onClick={() => setManualEntryFormData({...manualEntryFormData, seriesRepetitions: num})}
+                        className={`h-7 px-2 text-xs ${
+                          manualEntryFormData.seriesRepetitions === num
+                            ? 'bg-green-600 hover:bg-green-700'
+                            : 'bg-neutral-700 hover:bg-neutral-600'
+                        }`}
+                      >
+                        {num}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Odstęp w miesiącach */}
+                <div>
+                  <Label className="text-sm text-neutral-400 mb-2 block">
+                    Odstęp (w miesiącach)
+                  </Label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setManualEntryFormData({...manualEntryFormData, seriesIntervalMonths: Math.max(1, manualEntryFormData.seriesIntervalMonths - 1)})}
+                      className="h-8 w-8 p-0 bg-neutral-700 hover:bg-neutral-600"
+                    >
+                      -
+                    </Button>
+                    <span className="text-white font-bold text-lg min-w-[40px] text-center">
+                      {manualEntryFormData.seriesIntervalMonths}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setManualEntryFormData({...manualEntryFormData, seriesIntervalMonths: manualEntryFormData.seriesIntervalMonths + 1})}
+                      className="h-8 w-8 p-0 bg-neutral-700 hover:bg-neutral-600"
+                    >
+                      +
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {[1, 2, 3, 4, 6, 12].map(num => (
+                      <Button
+                        key={num}
+                        type="button"
+                        size="sm"
+                        onClick={() => setManualEntryFormData({...manualEntryFormData, seriesIntervalMonths: num})}
+                        className={`h-7 px-2 text-xs ${
+                          manualEntryFormData.seriesIntervalMonths === num
+                            ? 'bg-green-600 hover:bg-green-700'
+                            : 'bg-neutral-700 hover:bg-neutral-600'
+                        }`}
+                      >
+                        {num}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsManualEntryDialogOpen(false);
+              }}
+              className="border-neutral-700 text-neutral-300 hover:bg-neutral-800"
+            >
+              Anuluj
+            </Button>
+            <Button
+              onClick={handleSaveManualEntry}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              ➕ Dodaj transakcję
             </Button>
           </DialogFooter>
         </DialogContent>
