@@ -261,5 +261,6 @@ export const useTransactionActions = ({
     deleteTransactions,
     editTransaction,
     createTransaction,
+    saveStateBeforeReload,
   };
 };
