@@ -7,7 +7,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Minimize2, Maximize2, Plus } from "lucide-react";
+import { Minimize2, Maximize2, Plus, ArrowDownToLine } from "lucide-react";
 import { CellInfo, Transaction, Category } from "@/lib/types/dashboard";
 import { formatCurrency, formatDate, getCategoryPath } from "@/lib/utils/dashboard";
 
@@ -86,7 +86,15 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
     >
       <div className="p-3 md:p-4 overflow-y-auto overflow-x-auto backdrop-blur-sm h-full">
         {/* Nagłówek */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-2 mb-3">
+        <div className="flex flex-col items-stretch gap-2 mb-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-white font-semibold truncate">
+              <span className="text-neutral-400">{clickedCell.monthKey}:</span>{' '}
+              <span className="text-blue-400">{clickedCell.categoryPath.join(' / ')}</span> ={' '}
+              <span className="text-green-400">{formatCurrency(clickedCell.doneSum)}zł Done ({clickedCell.doneCount}tr)</span> |{' '}
+              <span className="text-yellow-400">{formatCurrency(clickedCell.plannedSum)}zł Planned ({clickedCell.plannedCount}tr)</span>
+            </p>
+          </div>
           <div className="flex gap-1">
             <Button
               variant="outline"
@@ -95,7 +103,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
               className="h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation"
               title={isCellInfoExpanded ? "Zwiń" : "Rozwiń"}
             >
-              {isCellInfoExpanded ? <Minimize2 className="h-5 w-5 text-neutral-400" /> : <Maximize2 className="h-5 w-5 text-neutral-400" />}
+              {isCellInfoExpanded ? <Minimize2 className="h-5 w-5 text-neutral-400" /> : <ArrowDownToLine className="h-5 w-5 text-neutral-400" />}
             </Button>
             
             <Button
@@ -107,30 +115,6 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
             >
               <Plus className="h-5 w-5 text-neutral-400" />
             </Button>
-          </div>
-          
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs sm:text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-neutral-500 font-medium">Miesiąc:</span>
-                <span className="text-white font-semibold">{clickedCell.monthLabel}</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-neutral-500 font-medium">Kategoria:</span>
-                <span className="text-blue-400 font-semibold">{clickedCell.categoryPath.join(' → ')}</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-neutral-500 font-medium">Done:</span>
-                <span className="text-green-400 font-semibold">{clickedCell.doneCount} trans. / {formatCurrency(clickedCell.doneSum)} PLN</span>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-neutral-500 font-medium">Planned:</span>
-                <span className="text-yellow-400 font-semibold">{clickedCell.plannedCount} trans. / {formatCurrency(clickedCell.plannedSum)} PLN</span>
-              </div>
-            </div>
           </div>
         </div>
         
