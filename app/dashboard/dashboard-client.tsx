@@ -75,6 +75,7 @@ export default function DashboardClient({
     description: '',
     origin: 'cash',
     category: '',
+    categoryFilter: '',
     seriesRepetitions: 1,
     seriesIntervalMonths: 1,
   });
@@ -240,7 +241,11 @@ export default function DashboardClient({
       
       setIsEditDialogOpen(true);
     } else {
-      alert(`📝 Edycja wielu transakcji:\n\nZaznaczono: ${selectedTransactions.length} transakcji\n\n⚠️ Edycja wielu transakcji jednocześnie nie jest dostępna.`);
+      alert(`📝 Edycja wielu transakcji:
+
+Zaznaczono: ${selectedTransactions.length} transakcji
+
+⚠️ Edycja wielu transakcji jednocześnie nie jest dostępna.`);
     }
   };
 
@@ -263,6 +268,7 @@ export default function DashboardClient({
       description: '',
       origin: 'cash',
       category: dashboardState.clickedCell.categoryId,
+      categoryFilter: '',
       seriesRepetitions: 1,
       seriesIntervalMonths: 1,
     });
@@ -299,12 +305,20 @@ export default function DashboardClient({
       setIsEditDialogOpen(false);
       setEditingTransaction(null);
       
-      alert(`✅ Sukces!\n\nTransakcja została zaktualizowana.\n\nStrona zostanie odświeżona.`);
+      alert(`✅ Sukces!
+
+Transakcja została zaktualizowana.
+
+Strona zostanie odświeżona.`);
       window.location.reload();
       
     } catch (error) {
       console.error('Error updating transaction:', error);
-      alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      alert(`❌ Błąd podczas aktualizacji transakcji:
+
+${error instanceof Error ? error.message : 'Nieznany błąd'}
+
+Spróbuj ponownie.`);
     }
   };
   
@@ -338,15 +352,27 @@ export default function DashboardClient({
       
       const count = result.count || 1;
       const message = count === 1 
-        ? `✅ Sukces!\n\nTransakcja została dodana.\n\nStrona zostanie odświeżona.`
-        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).\n\nStrona zostanie odświeżona.`;
+        ? `✅ Sukces!
+
+Transakcja została dodana.
+
+Strona zostanie odświeżona.`
+        : `✅ Sukces!
+
+Dodano ${count} transakcji (seria).
+
+Strona zostanie odświeżona.`;
       alert(message);
       
       window.location.reload();
       
     } catch (error) {
       console.error('Error creating transaction:', error);
-      alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      alert(`❌ Błąd podczas tworzenia transakcji:
+
+${error instanceof Error ? error.message : 'Nieznany błąd'}
+
+Spróbuj ponownie.`);
     }
   };
 
@@ -657,17 +683,38 @@ export default function DashboardClient({
                 <Label htmlFor="manual-category" className="text-neutral-300">
                   Kategoria
                 </Label>
+                <Input
+                  type="text"
+                  placeholder="Filtruj kategorie..."
+                  value={manualEntryFormData.categoryFilter}
+                  onChange={(e) => {
+                    const filterValue = e.target.value;
+                    const filtered = categories
+                      .filter(cat => cat.parent !== null && !cat.is_expanded)
+                      .filter(cat => getCategoryPath(cat.id).join(' ').toLowerCase().includes(filterValue.toLowerCase()));
+
+                    setManualEntryFormData({ 
+                      ...manualEntryFormData, 
+                      categoryFilter: filterValue,
+                      category: filtered.length > 0 ? filtered[0].id : '' 
+                    });
+                  }}
+                  className="mt-1 bg-neutral-800 border-neutral-700 text-white"
+                />
                 <select
                   id="manual-category"
                   value={manualEntryFormData.category}
-                  onChange={(e) => setManualEntryFormData({...manualEntryFormData, category: e.target.value})}
+                  onChange={(e) => setManualEntryFormData({ ...manualEntryFormData, category: e.target.value })}
                   className="mt-1 w-full h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
                   <option value="">Brak kategorii</option>
-                  {categories.filter(cat => cat.parent !== null && !cat.is_expanded).map((cat: any) => (
-                    <option key={cat.id} value={cat.id}>
-                      {getCategoryPath(cat.id).join(' → ')}
-                    </option>
+                  {categories
+                    .filter(cat => cat.parent !== null)
+                    .filter(cat => getCategoryPath(cat.id).join(' ').toLowerCase().includes(manualEntryFormData.categoryFilter.toLowerCase()))
+                    .map((cat: any) => (
+                      <option key={cat.id} value={cat.id}>
+                        {getCategoryPath(cat.id).join(' → ')}
+                      </option>
                   ))}
                 </select>
               </div>
