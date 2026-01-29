@@ -1,20 +1,11 @@
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import DashboardClient from "./dashboard-client";
 
-// TA LINIA JEST KLUCZOWA - Wyłącza cache i wymusza świeże dane przy każdym wejściu
+// Wyłącza cache i wymusza świeże dane przy każdym wejściu
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return redirect("/login");
-  }
 
   // Pobieranie danych
   const [
@@ -24,7 +15,6 @@ export default async function DashboardPage() {
     { data: weightLogs },
     { data: rules },
   ] = await Promise.all([
-    // ZMIANA TUTAJ: .range(0, 9999) wymusza pobranie do 10 tysięcy rekordów
     supabase.from("transactions").select("*").order("date", { ascending: false }).range(0, 9999),
     supabase.from("accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("categories").select("*").order("name", { ascending: true }),
@@ -34,7 +24,6 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      userEmail={user.email || ""}
       transactions={transactions || []}
       accounts={accounts || []}
       categories={categories || []}
