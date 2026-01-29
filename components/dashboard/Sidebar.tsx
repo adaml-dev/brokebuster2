@@ -13,7 +13,9 @@ import {
   Settings,
   LogOut,
   Ghost,
+  Upload,
 } from "lucide-react";
+import Link from 'next/link';
 
 interface SidebarProps {
   userEmail: string;
@@ -56,6 +58,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Ghost className="mr-2 h-4 w-4" /> Dashboard (Pivot)
           </Button>
+        </div>
+
+        <div className="space-y-1 mb-6">
+          <h3 className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 px-2">
+            Akcje
+          </h3>
+          <Link href="/dashboard/import" passHref legacyBehavior>
+            <a
+              className="flex items-center w-full text-left px-3 py-2 rounded-md text-sm font-medium text-neutral-400 hover:text-white hover:bg-neutral-800"
+              onClick={onMenuClose}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importuj
+            </a>
+          </Link>
         </div>
 
         <div className="space-y-1">
