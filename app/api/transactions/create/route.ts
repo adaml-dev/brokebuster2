@@ -41,9 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Przygotuj bazowy obiekt transakcji
     const allowedFields = ['transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category'];
-    const baseData: any = {
-      user_id: user.id,
-    };
+    const baseData: any = {};
     
     for (const field of allowedFields) {
       if (transactionData[field] !== undefined && transactionData[field] !== '') {
