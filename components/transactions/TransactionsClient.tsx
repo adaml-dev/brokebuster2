@@ -300,11 +300,18 @@ export default function TransactionsClient() {
   };
 
   const handleSelectAll = () => {
-    if (selectedTransactions.size === paginatedTransactions.length) {
-      setSelectedTransactions(new Set());
+    const currentPageIds = paginatedTransactions.map((t) => t.id);
+    const allSelectedOnPage = currentPageIds.every((id) => selectedTransactions.has(id));
+
+    const newSet = new Set(selectedTransactions);
+    if (allSelectedOnPage) {
+      // Unselect all on current page
+      currentPageIds.forEach((id) => newSet.delete(id));
     } else {
-      setSelectedTransactions(new Set(paginatedTransactions.map((t) => t.id)));
+      // Select all on current page
+      currentPageIds.forEach((id) => newSet.add(id));
     }
+    setSelectedTransactions(newSet);
   };
 
   const handleSelectTransaction = (id: string) => {
@@ -388,10 +395,12 @@ export default function TransactionsClient() {
       categoryId: bulkCategoryId,
     });
     setBulkCategoryId("");
+    setSelectedTransactions(new Set());
   };
 
   const handleUnlinkFromCategory = async () => {
     await unlinkCategoryMutation.mutateAsync(Array.from(selectedTransactions));
+    setSelectedTransactions(new Set());
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -618,7 +627,7 @@ export default function TransactionsClient() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedTransactions.size === paginatedTransactions.length && paginatedTransactions.length > 0}
+                      checked={paginatedTransactions.length > 0 && paginatedTransactions.every((t) => selectedTransactions.has(t.id))}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
@@ -765,7 +774,10 @@ export default function TransactionsClient() {
 
       <BulkEditDialog
         isOpen={isBulkEditDialogOpen}
-        onClose={() => setIsBulkEditDialogOpen(false)}
+        onClose={() => {
+          setIsBulkEditDialogOpen(false);
+          setSelectedTransactions(new Set());
+        }}
         selectedTransactionIds={Array.from(selectedTransactions)}
         categories={categories}
         uniqueOrigins={uniqueOrigins}

@@ -76,7 +76,7 @@ export default function EditTransactionDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transaction) return;
-    
+
     setIsSubmitting(true);
 
     try {
@@ -90,7 +90,7 @@ export default function EditTransactionDialog({
             payee: formData.payee,
             description: formData.description,
             amount: parseFloat(formData.amount),
-            category: formData.category || null,
+            category: formData.category === "none" ? null : (formData.category || null),
             origin: formData.origin,
             transaction_type: formData.transaction_type,
           },
@@ -172,13 +172,13 @@ export default function EditTransactionDialog({
               <Label htmlFor="edit-category">Kategoria</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, category: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Wybierz kategorię" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Brak kategorii</SelectItem>
+                  <SelectItem value="none">Brak kategorii</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
@@ -192,7 +192,7 @@ export default function EditTransactionDialog({
               <Label htmlFor="edit-origin">Pochodzenie</Label>
               <Select
                 value={formData.origin}
-                onValueChange={(value) => setFormData({ ...formData, origin: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, origin: value })}
               >
                 <SelectTrigger>
                   <SelectValue />

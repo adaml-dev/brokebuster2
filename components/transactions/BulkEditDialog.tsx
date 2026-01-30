@@ -47,37 +47,9 @@ export default function BulkEditDialog({
     amount: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      // Build updates object with only non-empty fields
-      const updates: any = {};
-      if (formData.origin) updates.origin = formData.origin;
-      if (formData.transaction_type) updates.transaction_type = formData.transaction_type;
-      if (formData.category) updates.category = formData.category;
-      if (formData.payee) updates.payee = formData.payee;
-      if (formData.description) updates.description = formData.description;
-      if (formData.amount) updates.amount = parseFloat(formData.amount);
-
-      // Update each transaction
-      for (const transactionId of selectedTransactionIds) {
-        const res = await fetch("/api/transactions/edit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            transactionId,
-            updates,
-          }),
-        });
-
-        if (!res.ok) throw new Error("Failed to update transaction");
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
-      
-      // Reset form
+  // Reset form when dialog opens
+  React.useEffect(() => {
+    if (isOpen) {
       setFormData({
         origin: "",
         transaction_type: "",
@@ -86,11 +58,53 @@ export default function BulkEditDialog({
         description: "",
         amount: "",
       });
-      
+    }
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Build updates object with only non-empty fields
+      const updates: any = {};
+      if (formData.origin && formData.origin !== "none") updates.origin = formData.origin;
+      if (formData.transaction_type && formData.transaction_type !== "none") updates.transaction_type = formData.transaction_type;
+      if (formData.category && formData.category !== "none") updates.category = formData.category;
+      if (formData.payee) updates.payee = formData.payee;
+      if (formData.description) updates.description = formData.description;
+      if (formData.amount) updates.amount = parseFloat(formData.amount);
+
+      if (Object.keys(updates).length === 0) {
+        alert("Wybierz przynajmniej jedno pole do zmiany");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Update transactions in bulk
+      const res = await fetch("/api/transactions/bulk-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionIds: selectedTransactionIds,
+          updates,
+        }),
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || "Failed to bulk update transactions");
+      }
+
+      const result = await res.json();
+
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+
+      alert(`✅ Sukces!\n\nZaktualizowano ${result.updatedCount} transakcji.`);
       onClose();
     } catch (error) {
       console.error("Error bulk updating transactions:", error);
-      alert("Błąd podczas aktualizacji transakcji");
+      alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -112,13 +126,13 @@ export default function BulkEditDialog({
               <Label htmlFor="bulk-origin">Pochodzenie</Label>
               <Select
                 value={formData.origin}
-                onValueChange={(value) => setFormData({ ...formData, origin: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, origin: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nie zmieniaj" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nie zmieniaj</SelectItem>
+                  <SelectItem value="none">Nie zmieniaj</SelectItem>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="mbank">mBank</SelectItem>
                   <SelectItem value="ing">ING</SelectItem>
@@ -138,13 +152,13 @@ export default function BulkEditDialog({
               <Label htmlFor="bulk-transaction_type">Typ transakcji</Label>
               <Select
                 value={formData.transaction_type}
-                onValueChange={(value) => setFormData({ ...formData, transaction_type: value })}
+                onValueChange={(value: string) => setFormData({ ...formData, transaction_type: value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Nie zmieniaj" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nie zmieniaj</SelectItem>
+                  <SelectItem value="none">Nie zmieniaj</SelectItem>
                   <SelectItem value="done">Done</SelectItem>
                   <SelectItem value="planned">Planned</SelectItem>
                 </SelectContent>
@@ -156,13 +170,13 @@ export default function BulkEditDialog({
             <Label htmlFor="bulk-category">Kategoria</Label>
             <Select
               value={formData.category}
-              onValueChange={(value) => setFormData({ ...formData, category: value })}
+              onValueChange={(value: string) => setFormData({ ...formData, category: value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Nie zmieniaj" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nie zmieniaj</SelectItem>
+                <SelectItem value="none">Nie zmieniaj</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
