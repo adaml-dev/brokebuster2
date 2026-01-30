@@ -62,9 +62,12 @@ export default function ImportClient() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [selectedPreset, setSelectedPreset] = useState<keyof typeof PRESETS | ''>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [skipRows, setSkipRows] = useState(0);
   const [encoding, setEncoding] = useState("UTF-8");
   const [delimiter, setDelimiter] = useState(";");
+  const [allSavedSettings, setAllSavedSettings] = useState<Record<string, any>>({});
   const router = useRouter();
   const [transformedData, setTransformedData] = useState<any[]>([]);
   const [presetColumnIndices, setPresetColumnIndices] = useState<any>(null);
@@ -76,18 +79,41 @@ export default function ImportClient() {
     description: '',
   });
 
+  // Wczytaj wszystkie zapisane ustawienia z bazy na starcie
   useEffect(() => {
-    if (selectedPreset) {
-      const savedSettings = localStorage.getItem(`importSettings_${selectedPreset}`);
-      if (savedSettings) {
-        const { skipRows, encoding, columnMapping, delimiter } = JSON.parse(savedSettings);
-        setSkipRows(skipRows || 0);
-        setEncoding(encoding || "UTF-8");
-        setColumnMapping(columnMapping || { date: '', amount: '', payee: '', description: '' });
-        setDelimiter(delimiter || ";");
+    const fetchAllSettings = async () => {
+      setIsLoadingSettings(true);
+      try {
+        const response = await fetch('/api/import-settings');
+        if (response.ok) {
+          const data = await response.json();
+          const settingsMap = data.settings.reduce((acc: any, curr: any) => {
+            acc[curr.bank_preset] = curr.settings;
+            return acc;
+          }, {});
+          setAllSavedSettings(settingsMap);
+        }
+      } catch (error) {
+        console.error("Failed to fetch settings from DB:", error);
+      } finally {
+        setIsLoadingSettings(false);
       }
+    };
+    fetchAllSettings();
+  }, []);
+
+  // Zastosuj zapisane ustawienia po zmianie presetu (lub gdy ustawienia zostaną wczytane z bazy)
+  useEffect(() => {
+    if (selectedPreset && allSavedSettings[selectedPreset]) {
+      const saved = allSavedSettings[selectedPreset];
+      setSkipRows(saved.skipRows ?? 0);
+      setEncoding(saved.encoding || "UTF-8");
+      setColumnMapping(saved.columnMapping || { date: '', amount: '', payee: '', description: '' });
+      setDelimiter(saved.delimiter || ";");
+      // Bardzo ważne: czyścimy presetColumnIndices, aby automatyczny mapper nie nadpisał tych wartości
+      setPresetColumnIndices(null);
     }
-  }, [selectedPreset]);
+  }, [selectedPreset, allSavedSettings]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -97,11 +123,22 @@ export default function ImportClient() {
 
   const handlePresetChange = (presetName: keyof typeof PRESETS) => {
     setSelectedPreset(presetName);
-    const preset = PRESETS[presetName];
-    setSkipRows(preset.skipRows);
-    setEncoding(preset.encoding);
-    setDelimiter(preset.delimiter);
-    setPresetColumnIndices(preset.columns);
+
+    // Jeśli mamy zapisane ustawienia dla tego banku, używamy ich zamiast domyślnego presetu
+    const saved = allSavedSettings[presetName];
+    if (saved) {
+      setSkipRows(saved.skipRows ?? 0);
+      setEncoding(saved.encoding || "UTF-8");
+      setColumnMapping(saved.columnMapping || { date: '', amount: '', payee: '', description: '' });
+      setDelimiter(saved.delimiter || ";");
+      setPresetColumnIndices(null);
+    } else {
+      const preset = PRESETS[presetName];
+      setSkipRows(preset.skipRows);
+      setEncoding(preset.encoding);
+      setDelimiter(preset.delimiter);
+      setPresetColumnIndices(preset.columns);
+    }
   };
 
   useEffect(() => {
@@ -138,7 +175,7 @@ export default function ImportClient() {
   }, [file, skipRows, encoding, delimiter]);
 
   useEffect(() => {
-    if(file) parseFile();
+    if (file) parseFile();
   }, [file, skipRows, encoding, delimiter, parseFile]);
 
   const normalizeDate = (dateString: string) => {
@@ -179,13 +216,13 @@ export default function ImportClient() {
           if (!date || !amount) {
             return null;
           }
-          
+
           return {
-              date: date,
-              amount: amount,
-              payee: row[payeeIndex] || '',
-              description: row[descriptionIndex] || '',
-              origin: preset?.name || 'import',
+            date: date,
+            amount: amount,
+            payee: row[payeeIndex] || '',
+            description: row[descriptionIndex] || '',
+            origin: preset?.name || 'import',
           };
         })
         .filter(Boolean);
@@ -195,10 +232,34 @@ export default function ImportClient() {
     transform();
   }, [parsedData, columnMapping, headers, selectedPreset]);
 
-  const saveSettings = () => {
+  const saveSettings = async () => {
     if (selectedPreset) {
+      setIsSaving(true);
       const settings = { skipRows, encoding, columnMapping, delimiter };
-      localStorage.setItem(`importSettings_${selectedPreset}`, JSON.stringify(settings));
+      try {
+        const response = await fetch('/api/import-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bank_preset: selectedPreset,
+            settings: settings
+          }),
+        });
+
+        if (response.ok) {
+          // Zaktualizuj lokalną kopię wszystkich ustawień
+          setAllSavedSettings(prev => ({
+            ...prev,
+            [selectedPreset]: settings
+          }));
+        } else {
+          console.error("Failed to save settings to DB");
+        }
+      } catch (error) {
+        console.error("Error saving settings:", error);
+      } finally {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -206,7 +267,7 @@ export default function ImportClient() {
     setIsLoading(true);
     try {
       const response = await fetch('/api/transactions/bulk', {
-        method: 'POST', 
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(transformedData),
       });
@@ -227,118 +288,120 @@ export default function ImportClient() {
     <main className="flex-1 p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-semibold">Import transakcji</h1>
-            <div className="flex gap-2">
-                <Button variant="outline" onClick={saveSettings}>Zapisz ustawienia</Button>
-                <Button onClick={handleImport} disabled={isLoading || !parsedData.length || !file}>
-                    {isLoading ? "Importowanie..." : "Importuj"}
-                </Button>
-            </div>
+          <h1 className="text-2xl font-semibold">Import transakcji</h1>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={saveSettings} disabled={isSaving || !selectedPreset}>
+              {isSaving ? "Zapisywanie..." : "Zapisz ustawienia"}
+            </Button>
+            <Button onClick={handleImport} disabled={isLoading || !parsedData.length || !file}>
+              {isLoading ? "Importowanie..." : "Importuj"}
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-3">
-            {/* Left Panel - Settings */}
-            <Card className="md:col-span-1 bg-neutral-900 border-neutral-800">
-                <CardHeader>
-                    <CardTitle>Ustawienia importu</CardTitle>
-                    <CardDescription>Wybierz plik i skonfiguruj parametry importu</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                      <Label htmlFor="file-upload">Plik CSV</Label>
-                      <Input id="file-upload" type="file" onChange={handleFileChange} className="mt-1"/>
-                    </div>
-                    
-                    <div>
-                        <Label>Wybierz bank (preset)</Label>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                            {Object.keys(PRESETS).map((key) => (
-                                <Button
-                                    key={key}
-                                    variant={selectedPreset === key ? "secondary" : "outline"}
-                                    onClick={() => handlePresetChange(key as keyof typeof PRESETS)} >
-                                    {PRESETS[key as keyof typeof PRESETS].name}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
+          {/* Left Panel - Settings */}
+          <Card className="md:col-span-1 bg-neutral-900 border-neutral-800">
+            <CardHeader>
+              <CardTitle>Ustawienia importu</CardTitle>
+              <CardDescription>Wybierz plik i skonfiguruj parametry importu</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="file-upload">Plik CSV</Label>
+                <Input id="file-upload" type="file" onChange={handleFileChange} className="mt-1" />
+              </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Pomiń wiersze</Label>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Button onClick={() => setSkipRows(s => Math.max(0, s - 1))}>-</Button>
-                          <Input type="number" value={skipRows} onChange={e => setSkipRows(parseInt(e.target.value, 10) || 0)} className="w-16 text-center bg-neutral-800 border-neutral-700" />
-                          <Button onClick={() => setSkipRows(s => s + 1)}>+</Button>
-                        </div>
-                      </div>
+              <div>
+                <Label>Wybierz bank (preset)</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {Object.keys(PRESETS).map((key) => (
+                    <Button
+                      key={key}
+                      variant={selectedPreset === key ? "secondary" : "outline"}
+                      onClick={() => handlePresetChange(key as keyof typeof PRESETS)} >
+                      {PRESETS[key as keyof typeof PRESETS].name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-                      <div>
-                        <Label>Kodowanie</Label>
-                        <select value={encoding} onChange={e => setEncoding(e.target.value)} className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700">
-                          <option value="UTF-8">UTF-8</option>
-                          <option value="windows-1250">windows-1250</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <Label>Separator</Label>
-                        <select value={delimiter} onChange={e => setDelimiter(e.target.value)} className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700">
-                          <option value=";">Semicolon (;)</option>
-                          <option value=",">Comma (,)</option>
-                        </select>
-                      </div>
-                    </div>
-                    
-                    {headers.length > 0 && (
-                      <div className="col-span-2 pt-4 border-t border-neutral-800">
-                        <h3 className="font-semibold mb-2">Mapowanie kolumn</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                          {Object.keys(columnMapping).map((field) => (
-                              <div key={field} className="mb-2">
-                                  <Label className="capitalize">{field}</Label>
-                                  <select 
-                                      value={columnMapping[field as keyof typeof columnMapping]}
-                                      onChange={(e) => setColumnMapping({...columnMapping, [field]: e.target.value})}
-                                      className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700"
-                                  >
-                                      <option value="">Wybierz kolumnę</option>
-                                      {headers.map((header, i) => <option key={`${header}-${i}`} value={header}>{header}</option>)}
-                                  </select>
-                              </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Right Panel - Data Preview */}
-            <Card className="md:col-span-2 bg-neutral-900 border-neutral-800">
-                <CardHeader>
-                    <CardTitle>Podgląd danych</CardTitle>
-                    <CardDescription>Sprawdź poprawność wczytanych danych (pierwsze 10 wierszy).</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-auto border border-neutral-700 rounded-md" style={{maxHeight: '500px'}}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-neutral-800">
-                          {headers.map((header, i) => <TableHead key={`${header}-${i}`} className="text-white">{header}</TableHead>)}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {parsedData.slice(0, 10).map((row, i) => (
-                          <TableRow key={i} className="hover:bg-neutral-850">
-                            {row.map((cell, j) => <TableCell key={j}>{cell}</TableCell>)}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Pomiń wiersze</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Button onClick={() => setSkipRows(s => Math.max(0, s - 1))}>-</Button>
+                    <Input type="number" value={skipRows} onChange={e => setSkipRows(parseInt(e.target.value, 10) || 0)} className="w-16 text-center bg-neutral-800 border-neutral-700" />
+                    <Button onClick={() => setSkipRows(s => s + 1)}>+</Button>
                   </div>
-                  {!file && <p className="text-center text-neutral-500 pt-10">Wybierz plik, aby zobaczyć podgląd.</p>}
-                </CardContent>
-            </Card>
+                </div>
+
+                <div>
+                  <Label>Kodowanie</Label>
+                  <select value={encoding} onChange={e => setEncoding(e.target.value)} className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700">
+                    <option value="UTF-8">UTF-8</option>
+                    <option value="windows-1250">windows-1250</option>
+                  </select>
+                </div>
+
+                <div>
+                  <Label>Separator</Label>
+                  <select value={delimiter} onChange={e => setDelimiter(e.target.value)} className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700">
+                    <option value=";">Semicolon (;)</option>
+                    <option value=",">Comma (,)</option>
+                  </select>
+                </div>
+              </div>
+
+              {headers.length > 0 && (
+                <div className="col-span-2 pt-4 border-t border-neutral-800">
+                  <h3 className="font-semibold mb-2">Mapowanie kolumn</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {Object.keys(columnMapping).map((field) => (
+                      <div key={field} className="mb-2">
+                        <Label className="capitalize">{field}</Label>
+                        <select
+                          value={columnMapping[field as keyof typeof columnMapping]}
+                          onChange={(e) => setColumnMapping({ ...columnMapping, [field]: e.target.value })}
+                          className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700"
+                        >
+                          <option value="">Wybierz kolumnę</option>
+                          {headers.map((header, i) => <option key={`${header}-${i}`} value={header}>{header}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Right Panel - Data Preview */}
+          <Card className="md:col-span-2 bg-neutral-900 border-neutral-800">
+            <CardHeader>
+              <CardTitle>Podgląd danych</CardTitle>
+              <CardDescription>Sprawdź poprawność wczytanych danych (pierwsze 10 wierszy).</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto border border-neutral-700 rounded-md" style={{ maxHeight: '500px' }}>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-neutral-800">
+                      {headers.map((header, i) => <TableHead key={`${header}-${i}`} className="text-white">{header}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parsedData.slice(0, 10).map((row, i) => (
+                      <TableRow key={i} className="hover:bg-neutral-850">
+                        {row.map((cell, j) => <TableCell key={j}>{cell}</TableCell>)}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {!file && <p className="text-center text-neutral-500 pt-10">Wybierz plik, aby zobaczyć podgląd.</p>}
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="mt-6 bg-neutral-900 border-neutral-800">
@@ -347,7 +410,7 @@ export default function ImportClient() {
             <CardDescription>To są dane, które zostaną zaimportowane do bazy danych.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-auto border border-neutral-700 rounded-md" style={{maxHeight: '500px'}}>
+            <div className="overflow-auto border border-neutral-700 rounded-md" style={{ maxHeight: '500px' }}>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-neutral-800">

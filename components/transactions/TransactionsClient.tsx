@@ -11,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter } from "lucide-react";
 
 // Dialogs
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 import EditTransactionDialog from "./EditTransactionDialog";
 import BulkEditDialog from "./BulkEditDialog";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 // Types
 interface Transaction {
@@ -62,6 +63,7 @@ export default function TransactionsClient() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
+  const [isFiltersSheetOpen, setIsFiltersSheetOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const [manualEntryFormData, setManualEntryFormData] = useState({
@@ -401,143 +403,174 @@ export default function TransactionsClient() {
     setIsBulkEditDialogOpen(true);
   };
 
+  const FilterContent = (
+    <div className="space-y-4">
+      {/* Add Transaction Button */}
+      <Button onClick={() => {
+        setIsAddDialogOpen(true);
+        setIsFiltersSheetOpen(false);
+      }} className="w-full" size="sm">
+        <Plus className="h-4 w-4 mr-2" />
+        Add Transaction
+      </Button>
+
+      {/* Clear Filters Button */}
+      <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
+        <X className="h-4 w-4 mr-2" />
+        Wyczyść filtry
+      </Button>
+
+      {/* Search Bar */}
+      <div>
+        <Label className="text-xs">Szukaj</Label>
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-500" />
+          <Input
+            placeholder="Payee, description..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+
+      {/* Link Status Tabs */}
+      <div>
+        <Label className="text-xs">Status powiązania</Label>
+        <Tabs value={linkStatus} onValueChange={(v: any) => setLinkStatus(v)}>
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="linked">Linked</TabsTrigger>
+            <TabsTrigger value="unlinked">Unlinked</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Origin Tabs */}
+      <div>
+        <Label className="text-xs">Pochodzenie</Label>
+        <Tabs value={originFilter} onValueChange={setOriginFilter}>
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="mbank">mBank</TabsTrigger>
+            <TabsTrigger value="ing">ING</TabsTrigger>
+          </TabsList>
+          <TabsList className="grid grid-cols-3 w-full mt-1">
+            <TabsTrigger value="pekao">Pekao</TabsTrigger>
+            <TabsTrigger value="cash">Cash</TabsTrigger>
+            <TabsTrigger value="unknown">Unknown</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Transaction Type Tabs */}
+      <div>
+        <Label className="text-xs">Typ transakcji</Label>
+        <Tabs value={typeFilter} onValueChange={setTypeFilter}>
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="planned">Planned</TabsTrigger>
+            <TabsTrigger value="done">Done</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Category Filter */}
+      <div>
+        <Label className="text-xs">Kategoria</Label>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger>
+            <SelectValue placeholder="Wszystkie kategorie" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Wszystkie kategorie</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Date Range */}
+      <div>
+        <Label className="text-xs">Zakres dat</Label>
+        <div className="space-y-2">
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            placeholder="Od"
+          />
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            placeholder="Do"
+          />
+        </div>
+      </div>
+
+      {/* Amount Range */}
+      <div>
+        <Label className="text-xs">Zakres kwot</Label>
+        <div className="space-y-2">
+          <Input
+            type="number"
+            value={minAmount}
+            onChange={(e) => setMinAmount(e.target.value)}
+            placeholder="Min Amount"
+          />
+          <Input
+            type="number"
+            value={maxAmount}
+            onChange={(e) => setMaxAmount(e.target.value)}
+            placeholder="Max Amount"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   // ===== RENDER =====
   return (
     <div className="flex gap-4 h-full">
-      {/* LEFT SIDEBAR */}
-      <Card className="w-80 bg-neutral-900 border-neutral-800 flex-shrink-0 overflow-auto">
+      {/* DESKTOP SIDEBAR */}
+      <Card className="hidden lg:flex flex-col w-80 bg-neutral-900 border-neutral-800 flex-shrink-0 overflow-hidden">
         <CardHeader className="pb-3">
           <h2 className="text-lg font-semibold">Filtry i Kontrole</h2>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Add Transaction Button */}
-          <Button onClick={() => setIsAddDialogOpen(true)} className="w-full" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Transaction
-          </Button>
-
-          {/* Clear Filters Button */}
-          <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
-            <X className="h-4 w-4 mr-2" />
-            Wyczyść filtry
-          </Button>
-
-          {/* Search Bar */}
-          <div>
-            <Label className="text-xs">Szukaj</Label>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-500" />
-              <Input
-                placeholder="Payee, description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-          </div>
-
-          {/* Link Status Tabs */}
-          <div>
-            <Label className="text-xs">Status powiązania</Label>
-            <Tabs value={linkStatus} onValueChange={(v: any) => setLinkStatus(v)}>
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="linked">Linked</TabsTrigger>
-                <TabsTrigger value="unlinked">Unlinked</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* Origin Tabs */}
-          <div>
-            <Label className="text-xs">Pochodzenie</Label>
-            <Tabs value={originFilter} onValueChange={setOriginFilter}>
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="mbank">mBank</TabsTrigger>
-                <TabsTrigger value="ing">ING</TabsTrigger>
-              </TabsList>
-              <TabsList className="grid grid-cols-3 w-full mt-1">
-                <TabsTrigger value="pekao">Pekao</TabsTrigger>
-                <TabsTrigger value="cash">Cash</TabsTrigger>
-                <TabsTrigger value="unknown">Unknown</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* Transaction Type Tabs */}
-          <div>
-            <Label className="text-xs">Typ transakcji</Label>
-            <Tabs value={typeFilter} onValueChange={setTypeFilter}>
-              <TabsList className="grid grid-cols-3 w-full">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="planned">Planned</TabsTrigger>
-                <TabsTrigger value="done">Done</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* Category Filter */}
-          <div>
-            <Label className="text-xs">Kategoria</Label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Wszystkie kategorie" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Wszystkie kategorie</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Date Range */}
-          <div>
-            <Label className="text-xs">Zakres dat</Label>
-            <div className="space-y-2">
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                placeholder="Od"
-              />
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                placeholder="Do"
-              />
-            </div>
-          </div>
-
-          {/* Amount Range */}
-          <div>
-            <Label className="text-xs">Zakres kwot</Label>
-            <div className="space-y-2">
-              <Input
-                type="number"
-                value={minAmount}
-                onChange={(e) => setMinAmount(e.target.value)}
-                placeholder="Min Amount"
-              />
-              <Input
-                type="number"
-                value={maxAmount}
-                onChange={(e) => setMaxAmount(e.target.value)}
-                placeholder="Max Amount"
-              />
-            </div>
-          </div>
+        <CardContent className="flex-1 overflow-y-auto px-4 custom-scrollbar">
+          {FilterContent}
         </CardContent>
       </Card>
 
       {/* MAIN CONTENT */}
       <Card className="flex-1 bg-neutral-900 border-neutral-800 flex flex-col overflow-hidden">
         <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
+          {/* Mobile Filter Button */}
+          <div className="lg:hidden flex gap-2 mb-4">
+            <Sheet open={isFiltersSheetOpen} onOpenChange={setIsFiltersSheetOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="flex-1">
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filtry
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto">
+                <SheetHeader className="mb-4">
+                  <SheetTitle className="text-white">Filtry i Kontrole</SheetTitle>
+                </SheetHeader>
+                {FilterContent}
+              </SheetContent>
+            </Sheet>
+            <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1">
+              <Plus className="h-4 w-4 mr-2" />
+              Add
+            </Button>
+          </div>
+
           {/* Bulk Action Bar */}
           {selectedTransactions.size > 0 && (
             <div className="mb-4 p-3 bg-blue-950 border border-blue-800 rounded-md flex items-center gap-3 flex-wrap">
@@ -737,6 +770,6 @@ export default function TransactionsClient() {
         categories={categories}
         uniqueOrigins={uniqueOrigins}
       />
-    </div>
+    </div >
   );
 }
