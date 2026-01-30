@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X } from "lucide-react";
 
 // Dialogs
-import AddTransactionDialog from "./AddTransactionDialog";
+import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 import EditTransactionDialog from "./EditTransactionDialog";
 import BulkEditDialog from "./BulkEditDialog";
 
@@ -48,21 +48,34 @@ export default function TransactionsClient() {
   const [dateTo, setDateTo] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
-  
+
   const [sortColumn, setSortColumn] = useState<string>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  
+
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState("");
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(50);
-  
+
   // Dialog states
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBulkEditDialogOpen, setIsBulkEditDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const [manualEntryFormData, setManualEntryFormData] = useState({
+    date: new Date().toISOString().split("T")[0],
+    transaction_type: "done",
+    amount: "",
+    payee: "",
+    description: "",
+    origin: "cash",
+    category: "",
+    categoryFilter: "",
+    seriesRepetitions: 1,
+    seriesIntervalMonths: 1,
+  });
 
   // ===== DATA FETCHING =====
   const { data: transactionsData } = useQuery({
@@ -88,11 +101,11 @@ export default function TransactionsClient() {
 
   // ===== MUTATIONS =====
   const deleteTransactionMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (ids: string[]) => {
       const res = await fetch("/api/transactions/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transactionId: id }),
+        body: JSON.stringify({ transactionIds: ids }),
       });
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
@@ -302,17 +315,63 @@ export default function TransactionsClient() {
     setSelectedTransactions(newSet);
   };
 
+  const handleSaveManualEntry = async () => {
+    if (!manualEntryFormData.date || !manualEntryFormData.amount) {
+      alert("Data i kwota są wymagane");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/transactions/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(manualEntryFormData),
+      });
+
+      if (!res.ok) {
+        const result = await res.json();
+        throw new Error(result.error || "Failed to create transaction");
+      }
+
+      const result = await res.json();
+      const count = result.count || 1;
+
+      alert(count === 1
+        ? "✅ Sukces!\n\nTransakcja została dodana."
+        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).`
+      );
+
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      setIsAddDialogOpen(false);
+
+      // Reset form
+      setManualEntryFormData({
+        date: new Date().toISOString().split("T")[0],
+        transaction_type: "done",
+        amount: "",
+        payee: "",
+        description: "",
+        origin: "cash",
+        category: "",
+        categoryFilter: "",
+        seriesRepetitions: 1,
+        seriesIntervalMonths: 1,
+      });
+    } catch (error) {
+      console.error("Error creating transaction:", error);
+      alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+    }
+  };
+
   const handleDeleteTransaction = async (id: string) => {
     if (confirm("Czy na pewno chcesz usunąć tę transakcję?")) {
-      await deleteTransactionMutation.mutateAsync(id);
+      await deleteTransactionMutation.mutateAsync([id]);
     }
   };
 
   const handleDeleteSelected = async () => {
     if (confirm(`Czy na pewno chcesz usunąć ${selectedTransactions.size} transakcji?`)) {
-      for (const id of Array.from(selectedTransactions)) {
-        await deleteTransactionMutation.mutateAsync(id);
-      }
+      await deleteTransactionMutation.mutateAsync(Array.from(selectedTransactions));
       setSelectedTransactions(new Set());
     }
   };
@@ -530,27 +589,27 @@ export default function TransactionsClient() {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("date")}>
+                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("date")}>
                     Data {sortColumn === "date" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("payee")}>
+                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("payee")}>
                     Payee {sortColumn === "payee" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("category")}>
+                  <TableHead className="whitespace-nowrap">Description</TableHead>
+                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("category")}>
                     Category {sortColumn === "category" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("origin")}>
+                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("origin")}>
                     Origin {sortColumn === "origin" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="cursor-pointer" onClick={() => handleSort("transaction_type")}>
+                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("transaction_type")}>
                     Type {sortColumn === "transaction_type" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="cursor-pointer text-right" onClick={() => handleSort("amount")}>
+                  <TableHead className="cursor-pointer text-right whitespace-nowrap" onClick={() => handleSort("amount")}>
                     Amount {sortColumn === "amount" && (sortDirection === "asc" ? "↑" : "↓")}
                   </TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableHead className="text-right whitespace-nowrap">Balance</TableHead>
+                  <TableHead className="w-24 whitespace-nowrap">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -562,27 +621,27 @@ export default function TransactionsClient() {
                         onCheckedChange={() => handleSelectTransaction(t.id)}
                       />
                     </TableCell>
-                    <TableCell>{t.date}</TableCell>
-                    <TableCell>{t.payee}</TableCell>
-                    <TableCell className="max-w-xs truncate">{t.description}</TableCell>
-                    <TableCell>{getCategoryName(t.category)}</TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">{t.date}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={t.payee}>{t.payee}</TableCell>
+                    <TableCell className="max-w-md truncate" title={t.description}>{t.description}</TableCell>
+                    <TableCell className="whitespace-nowrap">{getCategoryName(t.category)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={getOriginBadgeVariant(t.origin)}>
                         {t.origin || "Unknown"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant={getTypeBadgeVariant(t.transaction_type)}>
                         {t.transaction_type === "done" ? "Done" : "Planned"}
                       </Badge>
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${t.amount >= 0 ? "text-green-500" : "text-red-500"}`}>
+                    <TableCell className={`text-right font-medium whitespace-nowrap ${t.amount >= 0 ? "text-green-500" : "text-red-500"}`}>
                       {t.amount.toFixed(2)}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium whitespace-nowrap">
                       {t.cumulativeBalance.toFixed(2)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <div className="flex gap-1">
                         <Button
                           size="sm"
@@ -650,10 +709,13 @@ export default function TransactionsClient() {
       </Card>
 
       {/* DIALOGS */}
-      <AddTransactionDialog
+      <ManualEntryDialog
         isOpen={isAddDialogOpen}
-        onClose={() => setIsAddDialogOpen(false)}
-        categories={categories}
+        onOpenChange={setIsAddDialogOpen}
+        formData={manualEntryFormData}
+        onFormChange={setManualEntryFormData}
+        onSave={handleSaveManualEntry}
+        categories={categories as any}
         uniqueOrigins={uniqueOrigins}
       />
 
