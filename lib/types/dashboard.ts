@@ -33,6 +33,15 @@ export interface Account {
   name: string;
   type: string;
   balance: number;
+  is_archived?: boolean;
+}
+
+export interface AccountStatement {
+  id: string;
+  account_id: string;
+  date: string;
+  balance: number;
+  created_at?: string;
 }
 
 export interface WeightLog {
@@ -57,6 +66,7 @@ export interface DashboardClientProps {
   categories: Category[];
   weightLogs: WeightLog[];
   rules: Rule[];
+  accountStatements: AccountStatement[];
 }
 
 export interface CellInfo {
@@ -83,6 +93,8 @@ export interface PivotData {
   categoryTree: Category[];
   monthlyTotals: Record<string, number>;
   cumulativeTotals: Record<string, number>;
+  accountBalances: Record<string, number | null>;
+  balanceDiffs: Record<string, number | null>;
 }
 
 // --- TYPY FORMULARZY ---

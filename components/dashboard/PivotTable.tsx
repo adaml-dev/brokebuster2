@@ -89,7 +89,7 @@ export const PivotTable: React.FC<PivotTableProps> = ({
             );
           })}
         </TableRow>
-        
+
         {/* Row 2: Bilans Narastająco (Cumulative Totals) */}
         <TableRow className="hover:bg-neutral-900 border-b border-neutral-800">
           <TableCell className="italic text-neutral-300 sticky left-0 bg-neutral-900 z-10 border-r border-neutral-800 min-w-[200px] py-3">
@@ -110,29 +110,41 @@ export const PivotTable: React.FC<PivotTableProps> = ({
             );
           })}
         </TableRow>
-        
-        {/* Row 3: Placeholder 1 */}
+
+        {/* Row 3: Stany kont (Account Balances) */}
         <TableRow className="hover:bg-neutral-900 border-b border-neutral-800">
-          <TableCell className="text-neutral-500 sticky left-0 bg-neutral-900 z-10 border-r border-neutral-800 min-w-[200px] py-2">
-            Placeholder 1
+          <TableCell className="text-neutral-300 sticky left-0 bg-neutral-900 z-10 border-r border-neutral-800 min-w-[200px] py-2">
+            Stany kont
           </TableCell>
-          {pivotData.columns.map(col => (
-            <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs text-neutral-700">
-              -
-            </TableCell>
-          ))}
+          {pivotData.columns.map(col => {
+            const val = pivotData.accountBalances[col.key];
+            return (
+              <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs font-medium text-neutral-400">
+                {val !== null && val !== undefined ? formatCurrency(val) : ""}
+              </TableCell>
+            );
+          })}
         </TableRow>
-        
-        {/* Row 4: Placeholder 2 */}
+
+        {/* Row 4: Różnica (Difference Row) */}
         <TableRow className="hover:bg-neutral-900">
-          <TableCell className="text-neutral-500 sticky left-0 bg-neutral-900 z-10 border-r border-neutral-800 min-w-[200px] py-2">
-            Placeholder 2
+          <TableCell className="italic text-neutral-500 sticky left-0 bg-neutral-900 z-10 border-r border-neutral-800 min-w-[200px] py-2">
+            Różnica
           </TableCell>
-          {pivotData.columns.map(col => (
-            <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs text-neutral-700">
-              -
-            </TableCell>
-          ))}
+          {pivotData.columns.map(col => {
+            const val = pivotData.balanceDiffs[col.key];
+            return (
+              <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs italic">
+                {val !== null && val !== undefined ? (
+                  <span className={val < 0 ? "text-red-500/70" : "text-green-500/70"}>
+                    {formatCurrency(val)}
+                  </span>
+                ) : (
+                  ""
+                )}
+              </TableCell>
+            );
+          })}
         </TableRow>
       </TableFooter>
     </Table>

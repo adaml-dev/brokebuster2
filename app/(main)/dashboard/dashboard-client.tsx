@@ -24,7 +24,7 @@ import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDia
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 
 // Typy
-import { Transaction, Account, Category, WeightLog, Rule } from "@/lib/types/dashboard";
+import { Transaction, Account, Category, WeightLog, Rule, AccountStatement } from "@/lib/types/dashboard";
 
 interface DashboardClientProps {
   transactions: Transaction[];
@@ -32,6 +32,7 @@ interface DashboardClientProps {
   categories: Category[];
   weightLogs: WeightLog[];
   rules: Rule[];
+  accountStatements: AccountStatement[];
 }
 
 export default function DashboardClient({
@@ -40,22 +41,24 @@ export default function DashboardClient({
   categories,
   weightLogs,
   rules,
+  accountStatements,
 }: DashboardClientProps) {
   const [selectedYear] = useState(new Date().getFullYear());
 
   // === HOOKI ===
-  
+
   // State management (localStorage, expanded categories, clicked cell)
   const dashboardState = useDashboardState({ categories, transactions });
-  
+
   // Pivot calculations (kolumny, wartości, sumy)
   const pivotData = usePivotCalculations({
     transactions,
     categories,
     selectedYear,
     monthOffset: dashboardState.monthOffset,
+    accountStatements,
   });
-  
+
   // Transaction filters (sortowanie, filtrowanie)
   const transactionFilters = useTransactionFilters({
     transactions,
@@ -68,7 +71,7 @@ export default function DashboardClient({
     categorySearchFilter: dashboardState.categorySearchFilter,
     setAssignToCategoryId: dashboardState.setAssignToCategoryId,
   });
-  
+
   // Transaction actions (API calls)
   const transactionActions = useTransactionActions({
     categories,
@@ -97,7 +100,7 @@ export default function DashboardClient({
   });
 
   // === FUNKCJE POMOCNICZE ===
-  
+
   // Pobierz unikalne wartości origin z transakcji
   const uniqueOrigins = React.useMemo(() => {
     const origins = new Set<string>();
@@ -112,7 +115,7 @@ export default function DashboardClient({
     }
     return sorted;
   }, [transactions]);
-  
+
   const handleSort = (column: string) => {
     if (dashboardState.sortColumn === column) {
       dashboardState.setSortDirection(dashboardState.sortDirection === 'asc' ? 'desc' : 'asc');
@@ -121,7 +124,7 @@ export default function DashboardClient({
       dashboardState.setSortDirection('asc');
     }
   };
-  
+
   const toggleTransactionSelection = (transactionId: string) => {
     const newSet = new Set(dashboardState.selectedTransactionIds);
     if (newSet.has(transactionId)) {
@@ -131,7 +134,7 @@ export default function DashboardClient({
     }
     dashboardState.setSelectedTransactionIds(newSet);
   };
-  
+
   const toggleAllTransactions = () => {
     const visibleTransactions = transactionFilters.getFilteredAndSortedTransactions;
     if (dashboardState.selectedTransactionIds.size === visibleTransactions.length) {
@@ -141,7 +144,7 @@ export default function DashboardClient({
       dashboardState.setSelectedTransactionIds(allIds);
     }
   };
-  
+
   const handleToggleUnassigned = () => {
     dashboardState.setShowUnassigned(!dashboardState.showUnassigned);
     dashboardState.setAssignToCategoryId('');
@@ -149,7 +152,7 @@ export default function DashboardClient({
   };
 
   // === RENDER ===
-  
+
   return (
     <div className="flex-1 p-2 md:p-4 overflow-hidden flex flex-col">
       <Card className="bg-neutral-900 border-neutral-800 h-full flex flex-col overflow-hidden">
@@ -181,7 +184,7 @@ export default function DashboardClient({
           onCategorySearchFilterChange={dashboardState.setCategorySearchFilter}
           filteredCategories={transactionFilters.getFilteredAndSortedCategories}
         />
-        
+
         {/* Toolbar */}
         <CardHeader className="flex flex-col py-2 gap-2">
           <ToolBar
@@ -206,7 +209,7 @@ export default function DashboardClient({
             onOpenManualEntry={formActions.handleOpenManualEntryDialog}
           />
         </CardHeader>
-        
+
         {/* Pivot Table */}
         <CardContent className="flex-1 overflow-auto p-0 relative">
           <PivotTable
@@ -218,16 +221,16 @@ export default function DashboardClient({
           />
         </CardContent>
       </Card>
-      
-      <EditTransactionDialog 
+
+      <EditTransactionDialog
         isOpen={formActions.isEditDialogOpen}
         onOpenChange={formActions.setIsEditDialogOpen}
         formData={formActions.editFormData}
         onFormChange={formActions.setEditFormData}
         onSave={formActions.handleSaveEdit}
         onCancel={() => {
-            formActions.setIsEditDialogOpen(false);
-            formActions.setEditingTransaction(null);
+          formActions.setIsEditDialogOpen(false);
+          formActions.setEditingTransaction(null);
         }}
       />
 

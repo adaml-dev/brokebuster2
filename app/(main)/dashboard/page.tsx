@@ -14,12 +14,14 @@ export default async function DashboardPage() {
     { data: categories },
     { data: weightLogs },
     { data: rules },
+    { data: accountStatements },
   ] = await Promise.all([
     supabase.from("transactions").select("*").order("date", { ascending: false }).range(0, 9999),
     supabase.from("accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("categories").select("*").order("name", { ascending: true }),
     supabase.from("adam_weight_logs").select("*").order("date", { ascending: false }),
     supabase.from("categorization_rules").select("*"),
+    supabase.from("account_statements").select("*").order("date", { ascending: false }),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function DashboardPage() {
       categories={categories || []}
       weightLogs={weightLogs || []}
       rules={rules || []}
+      accountStatements={accountStatements || []}
     />
   );
 }

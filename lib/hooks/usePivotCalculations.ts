@@ -4,7 +4,7 @@
  */
 
 import { useMemo } from "react";
-import { Transaction, Category, PivotData, ColumnData } from "@/lib/types/dashboard";
+import { Transaction, Category, PivotData, ColumnData, AccountStatement } from "@/lib/types/dashboard";
 import {
   getMonthKey,
   safeDate,
@@ -17,6 +17,7 @@ interface UsePivotCalculationsProps {
   categories: Category[];
   selectedYear: number;
   monthOffset: number;
+  accountStatements: AccountStatement[];
 }
 
 export const usePivotCalculations = ({
@@ -24,6 +25,7 @@ export const usePivotCalculations = ({
   categories,
   selectedYear,
   monthOffset,
+  accountStatements,
 }: UsePivotCalculationsProps): PivotData => {
   return useMemo(() => {
     const today = new Date();
@@ -42,12 +44,12 @@ export const usePivotCalculations = ({
 
     // 2. Mapa wartości BEZPOŚREDNICH (Direct Values)
     const directValuesMap: Record<string, Record<string, number>> = {};
-    
+
     transactions.forEach(t => {
       const transCategoryName = (t.category || "").toString().trim().toLowerCase();
-      const matchedCategory = categories.find(c => 
-        c.id === t.category || 
-        c.name.toLowerCase().trim() === transCategoryName 
+      const matchedCategory = categories.find(c =>
+        c.id === t.category ||
+        c.name.toLowerCase().trim() === transCategoryName
       );
 
       if (matchedCategory) {
@@ -57,7 +59,7 @@ export const usePivotCalculations = ({
 
           if (!directValuesMap[catId]) directValuesMap[catId] = {};
           if (!directValuesMap[catId][monthKey]) directValuesMap[catId][monthKey] = 0;
-          
+
           directValuesMap[catId][monthKey] += Number(t.amount);
         }
       }
@@ -130,7 +132,7 @@ export const usePivotCalculations = ({
     if (oldestDate) {
       const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
       const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
-      
+
       let currentDate = new Date(startDate);
       while (currentDate <= endDate) {
         const key = getMonthKey(currentDate);
@@ -152,11 +154,11 @@ export const usePivotCalculations = ({
     // Oblicz kumulację od początku czasu
     const cumulativeTotals: Record<string, number> = {};
     let runningTotal = 0;
-    
+
     if (oldestDate) {
       const startDate = new Date(oldestDate.getFullYear(), oldestDate.getMonth(), 1);
       const endDate = columns.length > 0 ? columns[columns.length - 1].date : new Date();
-      
+
       let currentDate = new Date(startDate);
       while (currentDate <= endDate) {
         const key = getMonthKey(currentDate);
@@ -166,12 +168,71 @@ export const usePivotCalculations = ({
       }
     }
 
-    return { 
-      columns, 
-      totalValuesMap, 
-      categoryTree, 
-      monthlyTotals, 
-      cumulativeTotals 
+    // 7. OBLICZ ACCOUNT BALANCES (Stany kont)
+    const accountBalances: Record<string, number | null> = {};
+    const balanceDiffs: Record<string, number | null> = {};
+
+    columns.forEach(col => {
+      // Sprawdzamy czy w TYM MIESIĄCU były jakiekolwiek zapisy stanu konta
+      const hasStatementsInMonth = accountStatements.some(s => {
+        try {
+          const sDate = new Date(s.date);
+          const sYear = sDate.getFullYear();
+          const sMonth = sDate.getMonth();
+          const colDate = col.date;
+          return sYear === colDate.getFullYear() && sMonth === colDate.getMonth();
+        } catch {
+          return false;
+        }
+      });
+
+      if (!hasStatementsInMonth) {
+        accountBalances[col.key] = null;
+        balanceDiffs[col.key] = null;
+        return;
+      }
+
+      // Dla każdej kolumny (miesiąca) obliczamy stan kont na koniec tego miesiąca
+      // Bierzemy ostatni dzień miesiąca
+      const lastDayOfMonth = new Date(col.date.getFullYear(), col.date.getMonth() + 1, 0);
+      lastDayOfMonth.setHours(23, 59, 59, 999);
+
+      // Grupujemy statementy po account_id i bierzemy najmłodszy nie późniejszy niż lastDayOfMonth
+      const latestStatements = new Map<string, AccountStatement>();
+
+      accountStatements.forEach(s => {
+        const sDate = new Date(s.date);
+        if (sDate <= lastDayOfMonth) {
+          const existing = latestStatements.get(s.account_id);
+          if (!existing || new Date(s.date) > new Date(existing.date)) {
+            latestStatements.set(s.account_id, s);
+          } else if (new Date(s.date).getTime() === new Date(existing.date).getTime()) {
+            // Jeśli daty są identyczne, bierzemy ten z późniejszą datą utworzenia
+            if (s.created_at && existing.created_at && new Date(s.created_at) > new Date(existing.created_at)) {
+              latestStatements.set(s.account_id, s);
+            }
+          }
+        }
+      });
+
+      // Sumujemy saldo ze wszystkich kont
+      let total = 0;
+      latestStatements.forEach(s => total += Number(s.balance));
+      accountBalances[col.key] = total;
+
+      // Oblicz różnicę miedzy stanem kont a bilansem narastającym
+      const cumulative = cumulativeTotals[col.key] || 0;
+      balanceDiffs[col.key] = total - cumulative;
+    });
+
+    return {
+      columns,
+      totalValuesMap,
+      categoryTree,
+      monthlyTotals,
+      cumulativeTotals,
+      accountBalances,
+      balanceDiffs
     };
-  }, [transactions, categories, monthOffset, selectedYear]);
+  }, [transactions, categories, monthOffset, selectedYear, accountStatements]);
 };
