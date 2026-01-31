@@ -15,30 +15,33 @@ interface UseDashboardStateProps {
 export const useDashboardState = ({ categories, transactions }: UseDashboardStateProps) => {
   // Stan rozwijania kategorii
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
-  
+
   // Stan filtrowania kategorii
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
-  
+
   // Stan nawigacji
   const [monthOffset, setMonthOffset] = useState(0);
-  
+
   // Stan klikniętej komórki
   const [clickedCell, setClickedCell] = useState<CellInfo | null>(null);
   const [isCellInfoExpanded, setIsCellInfoExpanded] = useState(false);
-  
+
   // Stan sortowania i filtrowania transakcji
   const [sortColumn, setSortColumn] = useState<string>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [transactionFilter, setTransactionFilter] = useState('');
-  
+
   // Stan toggle button (assigned/unassigned transactions)
   const [showUnassigned, setShowUnassigned] = useState(false);
-  
+
   // Stan zaznaczonych transakcji
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<Set<string>>(new Set());
   const [assignToCategoryId, setAssignToCategoryId] = useState<string>('');
   const [categorySearchFilter, setCategorySearchFilter] = useState<string>('');
+
+  // Stan trybu obliczeń
+  const [calculationMode, setCalculationMode] = useState<'mixed' | 'planned' | 'done' | 'diff'>('mixed');
 
   // Efekt: Wyczyść zaznaczone transakcje, gdy zmieniają się filtry
   useEffect(() => {
@@ -47,38 +50,38 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
       setSelectedTransactionIds(new Set());
     }
   }, [transactionFilter, showUnassigned]);
-  
+
   // Flaga wskazująca czy stan został już załadowany
   const stateLoadedRef = useRef(false);
 
   // Funkcja do kliknięcia komórki
   const handleCellClick = useCallback((categoryId: string, monthKey: string, monthLabel: string) => {
     const allCategoryIds = getAllCategoryIds(categoryId, categories);
-    
+
     const categoryTransactions = transactions.filter(t => {
       const transCategoryName = (t.category || "").toString().trim().toLowerCase();
-      const matchedCategory = categories.find(c => 
-        c.id === t.category || 
-        c.name.toLowerCase().trim() === transCategoryName 
+      const matchedCategory = categories.find(c =>
+        c.id === t.category ||
+        c.name.toLowerCase().trim() === transCategoryName
       );
-      
+
       if (matchedCategory && allCategoryIds.includes(matchedCategory.id)) {
         const tMonthKey = getMonthKey(safeDate(t.date));
         return tMonthKey === monthKey;
       }
       return false;
     });
-    
-    const doneTransactions = categoryTransactions.filter(t => 
+
+    const doneTransactions = categoryTransactions.filter(t =>
       t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true
     );
-    const plannedTransactions = categoryTransactions.filter(t => 
+    const plannedTransactions = categoryTransactions.filter(t =>
       t.transaction_type === 'planned'
     );
-    
+
     const doneSum = doneTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
     const plannedSum = plannedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-    
+
     setClickedCell({
       monthKey,
       monthLabel,
@@ -90,7 +93,7 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
       plannedSum,
       transactions: categoryTransactions,
     });
-    
+
     // Resetuj filtr i sortowanie przy nowym kliknięciu
     setTransactionFilter('');
     setSortColumn('date');
@@ -136,14 +139,14 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     if (expandedWithDepth.length === 0) return;
 
     const maxDepth = Math.max(...expandedWithDepth.map(item => item.depth));
-    
+
     const newSet = new Set(expandedCats);
     expandedWithDepth.forEach(item => {
       if (item.depth === maxDepth) {
         newSet.delete(item.id);
       }
     });
-    
+
     setExpandedCats(newSet);
   }, [categories, expandedCats]);
 
@@ -152,35 +155,35 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     if (stateLoadedRef.current || categories.length === 0) {
       return;
     }
-    
+
     stateLoadedRef.current = true;
-    
+
     const savedState = localStorage.getItem('dashboardState');
-    
+
     if (savedState) {
       try {
         const parsed = JSON.parse(savedState);
-        
+
         if (parsed.expandedCats && Array.isArray(parsed.expandedCats)) {
           setExpandedCats(new Set(parsed.expandedCats));
         }
-        
+
         if (typeof parsed.monthOffset === 'number') {
           setMonthOffset(parsed.monthOffset);
         }
-        
+
         if (parsed.categoryFilter) {
           setCategoryFilter(parsed.categoryFilter);
         }
-        
+
         if (parsed.clickedCell) {
           const categoryId = parsed.clickedCell.categoryId;
           const monthKey = parsed.clickedCell.monthKey;
           const monthLabel = parsed.clickedCell.monthLabel;
-          
+
           setTimeout(() => {
             handleCellClick(categoryId, monthKey, monthLabel);
-            
+
             if (typeof parsed.isCellInfoExpanded === 'boolean') {
               setIsCellInfoExpanded(parsed.isCellInfoExpanded);
             }
@@ -202,11 +205,14 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
             if (parsed.sortDirection) {
               setSortDirection(parsed.sortDirection);
             }
+            if (parsed.calculationMode) {
+              setCalculationMode(parsed.calculationMode);
+            }
           }, 100);
         }
-        
+
         localStorage.removeItem('dashboardState');
-        
+
       } catch (error) {
         console.error('Error parsing saved dashboard state:', error);
         const initialExpanded = new Set<string>();
@@ -240,7 +246,8 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     selectedTransactionIds,
     assignToCategoryId,
     categorySearchFilter,
-    
+    calculationMode,
+
     // Akcje
     setExpandedCats,
     setCategoryFilter,
@@ -255,7 +262,8 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     setSelectedTransactionIds,
     setAssignToCategoryId,
     setCategorySearchFilter,
-    
+    setCalculationMode,
+
     // Funkcje
     handleCellClick,
     toggleCategory,

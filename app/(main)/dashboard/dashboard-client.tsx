@@ -57,6 +57,7 @@ export default function DashboardClient({
     selectedYear,
     monthOffset: dashboardState.monthOffset,
     accountStatements,
+    calculationMode: dashboardState.calculationMode,
   });
 
   // Transaction filters (sortowanie, filtrowanie)
@@ -87,6 +88,7 @@ export default function DashboardClient({
       assignToCategoryId: dashboardState.assignToCategoryId,
       sortColumn: dashboardState.sortColumn,
       sortDirection: dashboardState.sortDirection,
+      calculationMode: dashboardState.calculationMode,
     },
     expandedCats: dashboardState.expandedCats,
     monthOffset: dashboardState.monthOffset,
@@ -207,6 +209,8 @@ export default function DashboardClient({
               )
             }
             onOpenManualEntry={formActions.handleOpenManualEntryDialog}
+            calculationMode={dashboardState.calculationMode}
+            onCalculationModeChange={dashboardState.setCalculationMode}
           />
         </CardHeader>
 

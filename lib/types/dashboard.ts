@@ -140,7 +140,9 @@ export interface DashboardState {
   categorySearchFilter: string;
   assignToCategoryId: string;
   sortColumn: string;
-  sortDirection: 'asc' | 'desc';
+  sortDirection: SortDirection;
+  calculationMode: CalculationMode;
 }
 
+export type CalculationMode = 'mixed' | 'planned' | 'done' | 'diff';
 export type SortDirection = 'asc' | 'desc';

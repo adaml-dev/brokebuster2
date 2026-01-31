@@ -16,7 +16,12 @@ import {
   Filter,
   Plus,
   ArrowDownToLine,
+  Layers,
+  CalendarClock,
+  CheckCircle,
+  Percent,
 } from "lucide-react";
+import { CalculationMode } from "@/lib/types/dashboard";
 
 interface ToolBarProps {
   monthOffset: number;
@@ -30,6 +35,8 @@ interface ToolBarProps {
   isCellInfoExpanded: boolean;
   onToggleExpand: () => void;
   onOpenManualEntry: () => void;
+  calculationMode: CalculationMode;
+  onCalculationModeChange: (mode: CalculationMode) => void;
 }
 
 export const ToolBar: React.FC<ToolBarProps> = ({
@@ -44,6 +51,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({
   isCellInfoExpanded,
   onToggleExpand,
   onOpenManualEntry,
+  calculationMode,
+  onCalculationModeChange,
 }) => {
   return (
     <div className="flex flex-col py-2 gap-2">
@@ -89,6 +98,54 @@ export const ToolBar: React.FC<ToolBarProps> = ({
             K
           </span>
         </Button>
+
+        {/* SEPARADOR */}
+        <div className="w-px h-6 bg-neutral-700 mx-1"></div>
+
+        {/* PRZYCISKI TRYBU OBLICZEŃ */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onCalculationModeChange('mixed')}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${calculationMode === 'mixed' ? 'bg-blue-900 border-blue-500' : ''
+            }`}
+          title="Tryb mieszany (Done przeszłe, Planned obecne/przyszłe)"
+        >
+          <Layers className={`h-5 w-5 ${calculationMode === 'mixed' ? 'text-blue-400' : 'text-neutral-400'}`} />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onCalculationModeChange('planned')}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-yellow-500 transition-colors touch-manipulation ${calculationMode === 'planned' ? 'bg-yellow-900/50 border-yellow-500' : ''
+            }`}
+          title="Tylko Planned"
+        >
+          <CalendarClock className={`h-5 w-5 ${calculationMode === 'planned' ? 'text-yellow-400' : 'text-neutral-400'}`} />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onCalculationModeChange('done')}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation ${calculationMode === 'done' ? 'bg-green-900 border-green-500' : ''
+            }`}
+          title="Tylko Done"
+        >
+          <CheckCircle className={`h-5 w-5 ${calculationMode === 'done' ? 'text-green-400' : 'text-neutral-400'}`} />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => onCalculationModeChange('diff')}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-red-500 transition-colors touch-manipulation ${calculationMode === 'diff' ? 'bg-red-900 border-red-500' : ''
+            }`}
+          title="Różnica (Planned - Done)"
+        >
+          <Percent className={`h-5 w-5 ${calculationMode === 'diff' ? 'text-red-400' : 'text-neutral-400'}`} />
+        </Button>
         {/* SEPARADOR */}
         <div className="w-px h-6 bg-neutral-700 mx-1"></div>
         {/* PRZYCISKI ROZWIJANIA/ZWIJANIA */}
@@ -101,7 +158,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <Maximize2 className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"
@@ -111,22 +168,21 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <Minimize2 className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"
           onClick={onToggleCategoryFilter}
-          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-purple-500 transition-colors touch-manipulation ${
-            showCategoryFilter ? 'bg-purple-900 border-purple-500' : ''
-          }`}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-purple-500 transition-colors touch-manipulation ${showCategoryFilter ? 'bg-purple-900 border-purple-500' : ''
+            }`}
           title="Filtruj kategorie"
         >
           <Filter className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         {/* SEPARADOR */}
         <div className="w-px h-6 bg-neutral-700 mx-1"></div>
-        
+
         {/* PRZYCISKI NAWIGACYJNE */}
         <Button
           variant="outline"
@@ -137,7 +193,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <ChevronsLeft className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"
@@ -147,19 +203,18 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <ChevronLeft className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"
           onClick={() => onMonthOffsetChange(0)}
-          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${
-            monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''
-          }`}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''
+            }`}
           title="Obecny miesiąc"
         >
           <Circle className={`h-5 w-5 ${monthOffset === 0 ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"
@@ -169,7 +224,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <ChevronRight className="h-5 w-5 text-neutral-400" />
         </Button>
-        
+
         <Button
           variant="outline"
           size="icon"

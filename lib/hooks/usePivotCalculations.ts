@@ -18,6 +18,7 @@ interface UsePivotCalculationsProps {
   selectedYear: number;
   monthOffset: number;
   accountStatements: AccountStatement[];
+  calculationMode: 'mixed' | 'planned' | 'done' | 'diff';
 }
 
 export const usePivotCalculations = ({
@@ -26,6 +27,7 @@ export const usePivotCalculations = ({
   selectedYear,
   monthOffset,
   accountStatements,
+  calculationMode,
 }: UsePivotCalculationsProps): PivotData => {
   return useMemo(() => {
     const today = new Date();
@@ -53,14 +55,30 @@ export const usePivotCalculations = ({
       );
 
       if (matchedCategory) {
-        if (shouldIncludeTransaction(t, currentMonthKey)) {
-          const catId = matchedCategory.id;
-          const monthKey = getMonthKey(safeDate(t.date));
+        const monthKey = getMonthKey(safeDate(t.date));
+        let amountToAdd = 0;
 
+        const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
+        const isPlanned = t.transaction_type === 'planned';
+
+        if (calculationMode === 'mixed') {
+          if (shouldIncludeTransaction(t, currentMonthKey)) {
+            amountToAdd = Number(t.amount);
+          }
+        } else if (calculationMode === 'planned') {
+          if (isPlanned) amountToAdd = Number(t.amount);
+        } else if (calculationMode === 'done') {
+          if (isDone) amountToAdd = Number(t.amount);
+        } else if (calculationMode === 'diff') {
+          if (isPlanned) amountToAdd -= Number(t.amount);
+          if (isDone) amountToAdd += Number(t.amount);
+        }
+
+        if (amountToAdd !== 0) {
+          const catId = matchedCategory.id;
           if (!directValuesMap[catId]) directValuesMap[catId] = {};
           if (!directValuesMap[catId][monthKey]) directValuesMap[catId][monthKey] = 0;
-
-          directValuesMap[catId][monthKey] += Number(t.amount);
+          directValuesMap[catId][monthKey] += amountToAdd;
         }
       }
     });
@@ -108,11 +126,23 @@ export const usePivotCalculations = ({
     columns.forEach((col: ColumnData) => monthlyTotals[col.key] = 0);
 
     transactions.forEach(t => {
-      if (shouldIncludeTransaction(t, currentMonthKey)) {
-        const monthKey = getMonthKey(safeDate(t.date));
-        if (monthlyTotals[monthKey] !== undefined) {
+      const monthKey = getMonthKey(safeDate(t.date));
+      if (monthlyTotals[monthKey] === undefined) return;
+
+      const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
+      const isPlanned = t.transaction_type === 'planned';
+
+      if (calculationMode === 'mixed') {
+        if (shouldIncludeTransaction(t, currentMonthKey)) {
           monthlyTotals[monthKey] += Number(t.amount);
         }
+      } else if (calculationMode === 'planned') {
+        if (isPlanned) monthlyTotals[monthKey] += Number(t.amount);
+      } else if (calculationMode === 'done') {
+        if (isDone) monthlyTotals[monthKey] += Number(t.amount);
+      } else if (calculationMode === 'diff') {
+        if (isPlanned) monthlyTotals[monthKey] -= Number(t.amount);
+        if (isDone) monthlyTotals[monthKey] += Number(t.amount);
       }
     });
 
@@ -142,11 +172,23 @@ export const usePivotCalculations = ({
 
       // Wypełnij wartościami z transakcji
       transactions.forEach(t => {
-        if (shouldIncludeTransaction(t, currentMonthKey)) {
-          const monthKey = getMonthKey(safeDate(t.date));
-          if (allMonthlyTotals[monthKey] !== undefined) {
+        const monthKey = getMonthKey(safeDate(t.date));
+        if (allMonthlyTotals[monthKey] === undefined) return;
+
+        const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
+        const isPlanned = t.transaction_type === 'planned';
+
+        if (calculationMode === 'mixed') {
+          if (shouldIncludeTransaction(t, currentMonthKey)) {
             allMonthlyTotals[monthKey] += Number(t.amount);
           }
+        } else if (calculationMode === 'planned') {
+          if (isPlanned) allMonthlyTotals[monthKey] += Number(t.amount);
+        } else if (calculationMode === 'done') {
+          if (isDone) allMonthlyTotals[monthKey] += Number(t.amount);
+        } else if (calculationMode === 'diff') {
+          if (isPlanned) allMonthlyTotals[monthKey] -= Number(t.amount);
+          if (isDone) allMonthlyTotals[monthKey] += Number(t.amount);
         }
       });
     }
@@ -235,5 +277,5 @@ export const usePivotCalculations = ({
       accountBalances,
       balanceDiffs
     };
-  }, [transactions, categories, monthOffset, selectedYear, accountStatements]);
+  }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode]);
 };

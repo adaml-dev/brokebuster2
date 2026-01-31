@@ -22,7 +22,7 @@ export const useTransactionActions = ({
   monthOffset,
   categoryFilter,
 }: UseTransactionActionsProps) => {
-  
+
   // Funkcja do zapisywania stanu przed reload
   const saveStateBeforeReload = useCallback(() => {
     const stateToSave = {
@@ -37,6 +37,7 @@ export const useTransactionActions = ({
       assignToCategoryId: dashboardState.assignToCategoryId,
       sortColumn: dashboardState.sortColumn,
       sortDirection: dashboardState.sortDirection,
+      calculationMode: dashboardState.calculationMode,
     };
     localStorage.setItem('dashboardState', JSON.stringify(stateToSave));
   }, [expandedCats, monthOffset, categoryFilter, dashboardState]);
@@ -50,17 +51,17 @@ export const useTransactionActions = ({
       alert('Wybierz kategorię i zaznacz co najmniej jedną transakcję');
       return;
     }
-    
+
     const selectedCategory = categories.find(c => c.id === categoryId);
     const categoryPath = selectedCategory ? getCategoryPath(categoryId, categories).join(' → ') : categoryId;
-    
+
     const transactionCount = transactionIds.size;
     const confirmMessage = `Czy na pewno chcesz przypisać ${transactionCount} transakcji do kategorii:\n"${categoryPath}"?`;
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
-    
+
     try {
       const response = await fetch('/api/transactions/assign-category', {
         method: 'POST',
@@ -80,11 +81,11 @@ export const useTransactionActions = ({
       }
 
       saveStateBeforeReload();
-      
+
       alert(`✅ Sukces!\n\nPrzypisano ${result.updatedCount} transakcji do kategorii:\n"${categoryPath}"\n\nStrona zostanie odświeżona.`);
-      
+
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error assigning category:', error);
       alert(`❌ Błąd podczas przypisywania kategorii:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
@@ -97,14 +98,14 @@ export const useTransactionActions = ({
       alert('Zaznacz co najmniej jedną transakcję');
       return;
     }
-    
+
     const transactionCount = transactionIds.size;
     const confirmMessage = `Czy na pewno chcesz odłączyć ${transactionCount} transakcji od kategorii?\n\nTransakcje staną się nieprzypisane.`;
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
-    
+
     try {
       const response = await fetch('/api/transactions/unlink-category', {
         method: 'POST',
@@ -123,11 +124,11 @@ export const useTransactionActions = ({
       }
 
       saveStateBeforeReload();
-      
+
       alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.\n\nStrona zostanie odświeżona.`);
-      
+
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error unlinking transactions:', error);
       alert(`❌ Błąd podczas odłączania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
@@ -140,19 +141,19 @@ export const useTransactionActions = ({
       alert('Zaznacz co najmniej jedną transakcję');
       return;
     }
-    
+
     const transactionCount = transactionIds.size;
     const confirmMessage = `❗ UWAGA ❗\n\nCzy na pewno chcesz TRWALE USUNĄĆ ${transactionCount} transakcji?\n\nTej operacji NIE MOŻNA cofnąć!`;
-    
+
     if (!confirm(confirmMessage)) {
       return;
     }
-    
+
     const doubleConfirm = confirm(`Potwierdź ponownie:\n\nUsuwam ${transactionCount} transakcji bezpowrotnie.`);
     if (!doubleConfirm) {
       return;
     }
-    
+
     try {
       const response = await fetch('/api/transactions/delete', {
         method: 'POST',
@@ -171,11 +172,11 @@ export const useTransactionActions = ({
       }
 
       saveStateBeforeReload();
-      
+
       alert(`✅ Sukces!\n\nUsunięto ${result.deletedCount} transakcji.\n\nStrona zostanie odświeżona.`);
-      
+
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error deleting transactions:', error);
       alert(`❌ Błąd podczas usuwania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
@@ -206,11 +207,11 @@ export const useTransactionActions = ({
       }
 
       saveStateBeforeReload();
-      
+
       alert(`✅ Sukces!\n\nTransakcja została zaktualizowana.\n\nStrona zostanie odświeżona.`);
-      
+
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error updating transaction:', error);
       alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
@@ -223,7 +224,7 @@ export const useTransactionActions = ({
       alert('Data i kwota są wymagane');
       return;
     }
-    
+
     try {
       const response = await fetch('/api/transactions/create', {
         method: 'POST',
@@ -240,15 +241,15 @@ export const useTransactionActions = ({
       }
 
       saveStateBeforeReload();
-      
+
       const count = result.count || 1;
-      const message = count === 1 
+      const message = count === 1
         ? `✅ Sukces!\n\nTransakcja została dodana.\n\nStrona zostanie odświeżona.`
         : `✅ Sukces!\n\nDodano ${count} transakcji (seria).\n\nStrona zostanie odświeżona.`;
       alert(message);
-      
+
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Error creating transaction:', error);
       alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
