@@ -12,22 +12,34 @@ export interface ProposedAssignment {
 export const useAutocategory = (transactions: Transaction[], categories: Category[]) => {
     const [proposals, setProposals] = useState<ProposedAssignment[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [uncategorizedCount, setUncategorizedCount] = useState(0);
 
     const analyze = useCallback((startDate: string, endDate: string) => {
         setIsAnalyzing(true);
 
-        // 1. Filter transactions to use as reference (must be 'done' and have a category)
+        // 1. Filter transactions to use as reference (must be 'done', have a category, NOT archived)
         const referenceTransactions = transactions.filter(t =>
-            t.transaction_type === 'done' && t.category && (t.description || t.payee)
+            t.transaction_type === 'done' &&
+            t.category &&
+            (t.description || t.payee) &&
+            !t.is_archived
         );
 
-        // 2. Filter target transactions (must be 'done', no category, and within date range)
+        // 2. Filter target transactions (must be 'done', NO valid category, and within date range)
         const targetTransactions = transactions.filter(t => {
             const isDone = t.transaction_type === 'done';
-            const hasNoCategory = !t.category || t.category === '';
+
+            // Transaction is unassigned if it has no category field, category is empty string/null,
+            // or the category ID doesn't exist in our known categories.
+            const hasNoCategory = !t.category || t.category === '' || !categories.some(c => c.id === t.category);
+
             const inRange = t.date >= startDate && t.date <= endDate;
-            return isDone && hasNoCategory && inRange;
+            const notArchived = !t.is_archived;
+
+            return isDone && hasNoCategory && inRange && notArchived;
         });
+
+        setUncategorizedCount(targetTransactions.length);
 
         const newProposals: ProposedAssignment[] = [];
 
@@ -132,6 +144,7 @@ export const useAutocategory = (transactions: Transaction[], categories: Categor
     return {
         proposals,
         isAnalyzing,
+        uncategorizedCount,
         analyze,
         toggleAcceptance,
         updateProposedCategory,

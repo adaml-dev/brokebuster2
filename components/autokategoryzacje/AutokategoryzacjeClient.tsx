@@ -31,6 +31,7 @@ export default function AutokategoryzacjeClient({
     const {
         proposals,
         isAnalyzing,
+        uncategorizedCount,
         analyze,
         toggleAcceptance,
         updateProposedCategory,
@@ -180,8 +181,17 @@ export default function AutokategoryzacjeClient({
                     </Card>
                 ) : !isAnalyzing && (
                     <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
-                        <p>Brak transakcji do kategoryzacji w wybranym zakresie.</p>
-                        <p className="text-sm mt-2">Kliknij "Analizuj", aby wyszukać transakcje.</p>
+                        {uncategorizedCount > 0 ? (
+                            <>
+                                <p>Znaleziono {uncategorizedCount} transakcji bez kategorii w tym zakresie,</p>
+                                <p className="text-sm mt-2">ale dla żadnej nie udało się dopasować propozycji na podstawie historii.</p>
+                            </>
+                        ) : (
+                            <>
+                                <p>Brak transakcji do kategoryzacji w wybranym zakresie.</p>
+                                <p className="text-sm mt-2">Kliknij "Analizuj", aby wyszukać transakcje.</p>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
