@@ -214,7 +214,15 @@ export default function TransactionsClient() {
 
     // Category filter
     if (categoryFilter !== "all") {
-      filtered = filtered.filter((t) => t.category === categoryFilter);
+      const selectedCat = categories.find((c) => c.id === categoryFilter);
+      filtered = filtered.filter((t) => {
+        if (!t.category) return false;
+        // Match by ID
+        if (t.category === categoryFilter) return true;
+        // Match by Name
+        if (selectedCat && t.category === selectedCat.name) return true;
+        return false;
+      });
     }
 
     // Date range filter
