@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import { Transaction, Category } from '@/lib/types/dashboard';
+import { useState, useCallback } from 'react';
+import { Transaction, Category, Rule } from '@/lib/types/dashboard';
 
 export interface ProposedAssignment {
     transactionId: string;
@@ -7,32 +7,48 @@ export interface ProposedAssignment {
     proposedCategoryId: string;
     confidence: number;
     accepted: boolean;
+    method: 'rule' | 'manual';
 }
 
-export const useAutocategory = (transactions: Transaction[], categories: Category[]) => {
+export const useAutocategory = (transactions: Transaction[], categories: Category[], rules: Rule[]) => {
     const [proposals, setProposals] = useState<ProposedAssignment[]>([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [uncategorizedCount, setUncategorizedCount] = useState(0);
 
+    const isUncategorized = useCallback((t: Transaction) => {
+        // If category is falsy (null, undefined, empty string), it's uncategorized
+        if (!t.category) return true;
+
+        // Convert to string for comparison
+        const catStr = String(t.category).trim().toLowerCase();
+
+        // Check for common "empty" values
+        const emptyValues = ['', '0', 'none', 'brak', 'null', 'undefined'];
+        if (emptyValues.includes(catStr)) return true;
+
+        // Check if the category exists in our categories list
+        const categoryExists = categories.some(c => {
+            const currentCat = String(t.category).trim().toLowerCase();
+            const idMatch = String(c.id).trim().toLowerCase() === currentCat;
+            const nameMatch = String(c.name).trim().toLowerCase() === currentCat;
+            return idMatch || nameMatch;
+        });
+
+        // Debug log for transactions that are theoretically categorized but failed the check
+        if (!categoryExists && t.category && String(t.category).length > 2) {
+            console.log(`Debug: Transaction ${t.id} has category '${t.category}' which was not found in categories list.`);
+        }
+
+        return !categoryExists;
+    }, [categories]);
+
     const analyze = useCallback((startDate: string, endDate: string) => {
         setIsAnalyzing(true);
 
-        // 1. Filter transactions to use as reference (must be 'done', have a category, NOT archived)
-        const referenceTransactions = transactions.filter(t =>
-            t.transaction_type === 'done' &&
-            t.category &&
-            (t.description || t.payee) &&
-            !t.is_archived
-        );
-
-        // 2. Filter target transactions (must be 'done', NO valid category, and within date range)
+        // 1. Filter target transactions (must be 'done', NO valid category, and within date range)
         const targetTransactions = transactions.filter(t => {
             const isDone = t.transaction_type === 'done';
-
-            // Transaction is unassigned if it has no category field, category is empty string/null,
-            // or the category ID doesn't exist in our known categories.
-            const hasNoCategory = !t.category || t.category === '' || !categories.some(c => c.id === t.category);
-
+            const hasNoCategory = isUncategorized(t);
             const inRange = t.date >= startDate && t.date <= endDate;
             const notArchived = !t.is_archived;
 
@@ -44,56 +60,56 @@ export const useAutocategory = (transactions: Transaction[], categories: Categor
         const newProposals: ProposedAssignment[] = [];
 
         targetTransactions.forEach(target => {
-            const matches: Record<string, number> = {};
+            // --- METHOD 1: Keyword Rules ---
+            let ruleMatch: Rule | undefined = undefined;
 
-            referenceTransactions.forEach(ref => {
-                let matchScore = 0;
+            for (const rule of rules) {
+                // Normalize for comparison
+                const keyword = rule.keyword.toLowerCase().trim().replace(/\s+/g, ' ');
+                const fieldToSearch = (rule.field === 'payee' ? target.payee : target.description) || '';
+                const normalizedField = fieldToSearch.toLowerCase().trim().replace(/\s+/g, ' ');
 
-                // Exact match on Payee
-                if (target.payee && ref.payee && target.payee.toLowerCase() === ref.payee.toLowerCase()) {
-                    matchScore += 10;
-                }
+                // Check keyword
+                if (!normalizedField.includes(keyword)) continue;
 
-                // Exact match on Description
-                if (target.description && ref.description && target.description.toLowerCase() === ref.description.toLowerCase()) {
-                    matchScore += 8;
-                }
+                // Check amount constraints
+                if (rule.value_min !== undefined && rule.value_min !== null && target.amount < rule.value_min) continue;
+                if (rule.value_max !== undefined && rule.value_max !== null && target.amount > rule.value_max) continue;
 
-                // Substring match on Payee/Description
-                if (target.payee && ref.payee && (target.payee.toLowerCase().includes(ref.payee.toLowerCase()) || ref.payee.toLowerCase().includes(target.payee.toLowerCase()))) {
-                    matchScore += 5;
-                }
+                // Check date constraints
+                if (rule.date_from && target.date < rule.date_from) continue;
+                if (rule.date_to && target.date > rule.date_to) continue;
 
-                if (matchScore > 0 && ref.category) {
-                    matches[ref.category] = (matches[ref.category] || 0) + matchScore;
-                }
-            });
+                // If we got here, it's a match
+                ruleMatch = rule;
+                break; // Only first matching rule applies
+            }
 
-            // Find the category with the highest score
-            let bestCategoryId = '';
-            let maxScore = 0;
-
-            Object.entries(matches).forEach(([catId, score]) => {
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestCategoryId = catId;
-                }
-            });
-
-            if (bestCategoryId) {
+            if (ruleMatch) {
                 newProposals.push({
                     transactionId: target.id,
                     transaction: target,
-                    proposedCategoryId: bestCategoryId,
-                    confidence: maxScore,
-                    accepted: true, // Default to true so user can just click "Apply"
+                    proposedCategoryId: ruleMatch.category_id,
+                    confidence: 100, // Explicit rules have max confidence
+                    accepted: true,
+                    method: 'rule'
+                });
+            } else {
+                // FALLBACK: No match found, but user wants to see it in the list
+                newProposals.push({
+                    transactionId: target.id,
+                    transaction: target,
+                    proposedCategoryId: '', // No proposal
+                    confidence: 0,
+                    accepted: false, // Don't auto-accept
+                    method: 'manual'
                 });
             }
         });
 
         setProposals(newProposals);
         setIsAnalyzing(false);
-    }, [transactions]);
+    }, [transactions, rules, categories, isUncategorized]);
 
     const toggleAcceptance = (transactionId: string) => {
         setProposals(prev => prev.map(p =>
@@ -108,11 +124,9 @@ export const useAutocategory = (transactions: Transaction[], categories: Categor
     };
 
     const applyAssignments = async () => {
-        const acceptedProposals = proposals.filter(p => p.accepted);
+        const acceptedProposals = proposals.filter(p => p.accepted && p.proposedCategoryId);
         if (acceptedProposals.length === 0) return { success: false, message: "No proposals accepted" };
 
-        // Group by category to minimize API calls if needed, 
-        // but the existing API supports multiple IDs per category.
         const byCategory: Record<string, string[]> = {};
         acceptedProposals.forEach(p => {
             if (!byCategory[p.proposedCategoryId]) byCategory[p.proposedCategoryId] = [];
@@ -134,7 +148,11 @@ export const useAutocategory = (transactions: Transaction[], categories: Categor
             }
 
             setProposals(prev => prev.filter(p => !p.accepted));
-            return { success: true, updatedCount: totalUpdated };
+            return {
+                success: true,
+                updatedCount: totalUpdated,
+                appliedAssignments: acceptedProposals
+            };
         } catch (error) {
             console.error(error);
             return { success: false, message: error instanceof Error ? error.message : "Error applying assignments" };

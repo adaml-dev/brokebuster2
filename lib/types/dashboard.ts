@@ -52,9 +52,14 @@ export interface WeightLog {
 
 export interface Rule {
   id: string;
-  name: string;
-  condition: string;
-  action: string;
+  keyword: string;
+  field: 'payee' | 'description';
+  category_id: string; // ID kategorii
+  value_min?: number;
+  value_max?: number;
+  date_from?: string;
+  date_to?: string;
+  created_at?: string;
 }
 
 // --- TYPY KOMPONENTU ---
