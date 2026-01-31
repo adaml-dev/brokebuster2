@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from 'react';
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -69,6 +70,7 @@ export default function ImportClient() {
   const [delimiter, setDelimiter] = useState(";");
   const [allSavedSettings, setAllSavedSettings] = useState<Record<string, any>>({});
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [transformedData, setTransformedData] = useState<any[]>([]);
   const [presetColumnIndices, setPresetColumnIndices] = useState<any>(null);
 
@@ -273,6 +275,7 @@ export default function ImportClient() {
       });
 
       if (response.ok) {
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
         router.push('/dashboard');
       } else {
         console.error("Failed to import transactions");
