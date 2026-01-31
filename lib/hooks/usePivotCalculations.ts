@@ -118,14 +118,14 @@ export const usePivotCalculations = ({
 
     // 6. OBLICZ CUMULATIVE TOTALS
     let oldestDate: Date | null = null;
-    transactions.forEach(t => {
+    for (const t of transactions) {
       if (shouldIncludeTransaction(t, currentMonthKey)) {
         const tDate = safeDate(t.date);
         if (!oldestDate || tDate < oldestDate) {
           oldestDate = tDate;
         }
       }
-    });
+    }
 
     // Oblicz wszystkie miesięczne sumy od najstarszej daty
     const allMonthlyTotals: Record<string, number> = {};
@@ -202,7 +202,8 @@ export const usePivotCalculations = ({
 
       accountStatements.forEach(s => {
         const sDate = new Date(s.date);
-        if (sDate <= lastDayOfMonth) {
+        // Check if statement belongs to the current column month
+        if (getMonthKey(sDate) === col.key) {
           const existing = latestStatements.get(s.account_id);
           if (!existing || new Date(s.date) > new Date(existing.date)) {
             latestStatements.set(s.account_id, s);

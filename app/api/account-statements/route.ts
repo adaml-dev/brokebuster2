@@ -16,12 +16,14 @@ export async function GET() {
             .order("date", { ascending: false });
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error("Error fetching account statements:", error);
+            return NextResponse.json({ error: error.message, details: error }, { status: 500 });
         }
 
         return NextResponse.json({ statements: data || [] });
     } catch (error) {
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        console.error("Unexpected error in GET /api/account-statements:", error);
+        return NextResponse.json({ error: "Internal server error", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -37,22 +39,32 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { account_id, date, balance } = body;
 
+        console.log("Creating account statement:", { account_id, date, balance });
+
         if (!account_id || !date || balance === undefined) {
             return NextResponse.json({ error: "account_id, date, and balance are required" }, { status: 400 });
         }
 
         const { data, error } = await supabase
             .from("account_statements")
-            .insert([{ account_id, date, balance }])
+            .insert([{
+                account_id,
+                date,
+                balance,
+                created_at: new Date().toISOString()
+            }])
             .select()
             .single();
 
         if (error) {
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error("Supabase error creating account statement:", error);
+            return NextResponse.json({ error: error.message, details: error }, { status: 500 });
         }
 
+        console.log("Account statement created successfully:", data);
         return NextResponse.json({ statement: data });
     } catch (error) {
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+        console.error("Unexpected error in POST /api/account-statements:", error);
+        return NextResponse.json({ error: "Internal server error", details: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
