@@ -33,6 +33,23 @@ export const usePivotCalculations = ({
     const today = new Date();
     const currentMonthKey = getMonthKey(today);
 
+    // Helpers to match category efficiently
+    const categoryMap = new Map<string, Category>();
+    const categoryNameMap = new Map<string, Category>();
+
+    categories.forEach(c => {
+      categoryMap.set(c.id, c);
+      categoryNameMap.set(c.name.toLowerCase().trim(), c);
+    });
+
+    const getMatchedCategory = (t: Transaction): Category | undefined => {
+      if (!t.category) return undefined;
+      const idMatch = categoryMap.get(t.category);
+      if (idMatch) return idMatch;
+      const name = t.category.toString().trim().toLowerCase();
+      return categoryNameMap.get(name);
+    };
+
     // 1. Kolumny - 12 miesięcy
     const columns: ColumnData[] = [];
     for (let i = 0; i < 12; i++) {
@@ -48,11 +65,7 @@ export const usePivotCalculations = ({
     const directValuesMap: Record<string, Record<string, number>> = {};
 
     transactions.forEach(t => {
-      const transCategoryName = (t.category || "").toString().trim().toLowerCase();
-      const matchedCategory = categories.find(c =>
-        c.id === t.category ||
-        c.name.toLowerCase().trim() === transCategoryName
-      );
+      const matchedCategory = getMatchedCategory(t);
 
       if (matchedCategory) {
         const monthKey = getMonthKey(safeDate(t.date));
@@ -129,6 +142,10 @@ export const usePivotCalculations = ({
       const monthKey = getMonthKey(safeDate(t.date));
       if (monthlyTotals[monthKey] === undefined) return;
 
+      // Only include categorized transactions in the balance
+      const matchedCategory = getMatchedCategory(t);
+      if (!matchedCategory) return;
+
       const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
       const isPlanned = t.transaction_type === 'planned';
 
@@ -174,6 +191,10 @@ export const usePivotCalculations = ({
       transactions.forEach(t => {
         const monthKey = getMonthKey(safeDate(t.date));
         if (allMonthlyTotals[monthKey] === undefined) return;
+
+        // Only include categorized transactions in the balance
+        const matchedCategory = getMatchedCategory(t);
+        if (!matchedCategory) return;
 
         const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
         const isPlanned = t.transaction_type === 'planned';
