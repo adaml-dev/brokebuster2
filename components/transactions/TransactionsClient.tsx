@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter, Download } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 // Dialogs
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
@@ -418,6 +419,24 @@ export default function TransactionsClient() {
     setIsBulkEditDialogOpen(true);
   };
 
+  const handleExport = () => {
+    const exportData = filteredAndSortedTransactions.map((t) => ({
+      Data: t.date,
+      Payee: t.payee,
+      Opis: t.description,
+      Kategoria: getCategoryName(t.category),
+      Kwota: t.amount,
+      Pochodzenie: t.origin,
+      Typ: t.transaction_type === "done" ? "Dokonana" : "Planowana",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Transakcje");
+    const dateStr = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `transakcje_export_${dateStr}.xlsx`);
+  };
+
   const FilterContent = (
     <div className="space-y-4">
       {/* Add Transaction Button */}
@@ -427,6 +446,12 @@ export default function TransactionsClient() {
       }} className="w-full" size="sm">
         <Plus className="h-4 w-4 mr-2" />
         Add Transaction
+      </Button>
+
+      {/* Export Button */}
+      <Button onClick={handleExport} variant="outline" className="w-full" size="sm">
+        <Download className="h-4 w-4 mr-2" />
+        Eksportuj do XLSX
       </Button>
 
       {/* Clear Filters Button */}
