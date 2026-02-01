@@ -19,6 +19,9 @@ import EditTransactionDialog from "./EditTransactionDialog";
 import BulkEditDialog from "./BulkEditDialog";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
+import { isLeafCategory } from "@/lib/utils/dashboard";
+import { Category } from "@/lib/types/dashboard";
+
 // Types
 interface Transaction {
   id: string;
@@ -29,11 +32,6 @@ interface Transaction {
   category: string | null;
   origin: string;
   transaction_type: "planned" | "done";
-}
-
-interface Category {
-  id: string;
-  name: string;
 }
 
 export default function TransactionsClient() {
@@ -599,7 +597,7 @@ export default function TransactionsClient() {
                   <SelectValue placeholder="Wybierz kategorię" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((cat) => (
+                  {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
                     </SelectItem>

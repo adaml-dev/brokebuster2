@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Category } from "@/lib/types/dashboard";
+import { isLeafCategory } from "@/lib/utils/dashboard";
 
 interface Transaction {
   id: string;
@@ -24,11 +26,6 @@ interface Transaction {
   category: string | null;
   origin: string;
   transaction_type: "planned" | "done";
-}
-
-interface Category {
-  id: string;
-  name: string;
 }
 
 interface EditTransactionDialogProps {
@@ -179,7 +176,7 @@ export default function EditTransactionDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Brak kategorii</SelectItem>
-                  {categories.map((cat) => (
+                  {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
                       {cat.name}
                     </SelectItem>

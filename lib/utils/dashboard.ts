@@ -49,7 +49,7 @@ export const shouldIncludeTransaction = (
 ): boolean => {
   const tDate = safeDate(transaction.date);
   const tMonthKey = getMonthKey(tDate);
-  
+
   if (tMonthKey < currentMonthKey) {
     // Przeszłość: Tylko DONE, Import lub Archiwalne
     return (
@@ -71,7 +71,7 @@ export const getCategoryPath = (
 ): string[] => {
   const path: string[] = [];
   let currentId: string | null = categoryId;
-  
+
   while (currentId) {
     const cat = categories.find(c => c.id === currentId);
     if (cat) {
@@ -81,7 +81,7 @@ export const getCategoryPath = (
       break;
     }
   }
-  
+
   return path;
 };
 
@@ -91,14 +91,14 @@ export const getAllCategoryIds = (
 ): string[] => {
   const ids = [categoryId];
   const category = categories.find(c => c.id === categoryId);
-  
+
   if (category) {
     const children = categories.filter(c => c.parent === categoryId);
     children.forEach(child => {
       ids.push(...getAllCategoryIds(child.id, categories));
     });
   }
-  
+
   return ids;
 };
 
@@ -111,24 +111,24 @@ export const shouldShowCategory = (
   parentMatches: boolean = false
 ): boolean => {
   if (!categoryFilter.trim()) return true;
-  
+
   const filterLower = categoryFilter.toLowerCase();
   const nameMatches = category.name.toLowerCase().includes(filterLower);
-  
+
   // Jeśli kategoria pasuje do filtra, pokaż ją
   if (nameMatches) return true;
-  
+
   // Jeśli rodzic pasuje, pokaż wszystkie dzieci z is_expanded
   if (parentMatches && category.is_expanded) return true;
-  
+
   // Sprawdź czy któreś z dzieci pasuje do filtra
   if (category.children && category.children.length > 0) {
-    const hasMatchingChild = category.children.some((child: Category) => 
+    const hasMatchingChild = category.children.some((child: Category) =>
       shouldShowCategory(child, categoryFilter, categories, nameMatches || parentMatches)
     );
     if (hasMatchingChild) return true;
   }
-  
+
   return false;
 };
 
@@ -136,7 +136,7 @@ export const shouldShowCategory = (
 
 export const buildCategoryTree = (categories: Category[]): Category[] => {
   const sortedCats = [...categories].sort((a, b) => (a.order || 0) - (b.order || 0));
-  
+
   const buildTree = (parentId: string | null): Category[] => {
     return sortedCats
       .filter((c): c is Category => c.parent === parentId)
@@ -145,7 +145,7 @@ export const buildCategoryTree = (categories: Category[]): Category[] => {
         children: buildTree(c.id)
       }));
   };
-  
+
   return buildTree(null);
 };
 
@@ -173,3 +173,20 @@ export const getUniqueOrigins = (transactions: Transaction[]): string[] => {
   }
   return sorted;
 };
+
+// --- SPRAWDZANIE KATEGORII (LEAF) ---
+
+export const isLeafCategory = (categoryId: string, categories: Category[]): boolean => {
+  return !categories.some(c => c.parent === categoryId);
+};
+
+export const getLeafCategories = (categories: Category[]): Category[] => {
+  const parentIds = new Set(
+    categories
+      .map(c => c.parent)
+      .filter((id): id is string => id !== null)
+  );
+
+  return categories.filter(c => !parentIds.has(c.id));
+};
+

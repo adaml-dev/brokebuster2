@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Rule, Category } from "@/lib/types/dashboard";
 import { Badge } from "@/components/ui/badge";
+import { isLeafCategory } from "@/lib/utils/dashboard";
 
 interface RulesManagementProps {
     rules: Rule[];
@@ -239,7 +240,7 @@ export default function RulesManagement({ rules, categories, onRulesChange }: Ru
                                     <SelectValue placeholder="Wybierz kategorię..." />
                                 </SelectTrigger>
                                 <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                    {categories.map(cat => (
+                                    {categories.filter(c => isLeafCategory(c.id, categories)).map(cat => (
                                         <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
                                     ))}
                                 </SelectContent>

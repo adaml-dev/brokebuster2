@@ -14,11 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-interface Category {
-  id: string;
-  name: string;
-}
+import { Category } from "@/lib/types/dashboard";
+import { isLeafCategory } from "@/lib/utils/dashboard";
 
 interface BulkEditDialogProps {
   isOpen: boolean;
@@ -177,7 +174,7 @@ export default function BulkEditDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nie zmieniaj</SelectItem>
-                {categories.map((cat) => (
+                {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
                     {cat.name}
                   </SelectItem>

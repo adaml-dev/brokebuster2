@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAutocategory } from "@/lib/hooks/useAutocategory";
 import { Category, Transaction, Rule } from "@/lib/types/dashboard";
-import { formatCurrency, formatDate } from "@/lib/utils/dashboard";
+import { formatCurrency, formatDate, isLeafCategory } from "@/lib/utils/dashboard";
 import RulesManagement from "./RulesManagement";
 import { Badge } from "@/components/ui/badge";
 
@@ -225,7 +225,7 @@ export default function AutokategoryzacjeClient({
                                                                 <SelectValue placeholder="Wybierz kategorię" />
                                                             </SelectTrigger>
                                                             <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                                                {categories.map((cat) => (
+                                                                {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
                                                                     <SelectItem key={cat.id} value={cat.id}>
                                                                         {cat.name}
                                                                     </SelectItem>
