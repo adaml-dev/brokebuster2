@@ -100,6 +100,7 @@ export interface PivotData {
   cumulativeTotals: Record<string, number>;
   accountBalances: Record<string, number | null>;
   balanceDiffs: Record<string, number | null>;
+  currentMonthKey: string;
 }
 
 // --- TYPY FORMULARZY ---

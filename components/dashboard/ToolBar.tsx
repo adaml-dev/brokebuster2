@@ -37,6 +37,7 @@ interface ToolBarProps {
   onOpenManualEntry: () => void;
   calculationMode: CalculationMode;
   onCalculationModeChange: (mode: CalculationMode) => void;
+  currentMonthOffset: number;
 }
 
 export const ToolBar: React.FC<ToolBarProps> = ({
@@ -53,6 +54,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
   onOpenManualEntry,
   calculationMode,
   onCalculationModeChange,
+  currentMonthOffset,
 }) => {
   return (
     <div className="flex flex-col py-2 gap-2">
@@ -207,12 +209,12 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         <Button
           variant="outline"
           size="icon"
-          onClick={() => onMonthOffsetChange(0)}
-          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === 0 ? 'bg-blue-900 border-blue-500' : ''
+          onClick={() => onMonthOffsetChange(currentMonthOffset)}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-blue-500 transition-colors touch-manipulation ${monthOffset === currentMonthOffset ? 'bg-blue-900 border-blue-500' : ''
             }`}
           title="Obecny miesiąc"
         >
-          <Circle className={`h-5 w-5 ${monthOffset === 0 ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
+          <Circle className={`h-5 w-5 ${monthOffset === currentMonthOffset ? 'text-blue-400 fill-blue-400' : 'text-neutral-400'}`} />
         </Button>
 
         <Button

@@ -296,7 +296,8 @@ export const usePivotCalculations = ({
       monthlyTotals,
       cumulativeTotals,
       accountBalances,
-      balanceDiffs
+      balanceDiffs,
+      currentMonthKey
     };
   }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode]);
 };

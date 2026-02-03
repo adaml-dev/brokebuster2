@@ -14,7 +14,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { CategoryRow } from "./CategoryRow";
-import { PivotData } from "@/lib/types/dashboard";
+import { PivotData, CellInfo } from "@/lib/types/dashboard";
 import { formatCurrency, shouldShowCategory } from "@/lib/utils/dashboard";
 
 interface PivotTableProps {
@@ -23,6 +23,7 @@ interface PivotTableProps {
   categoryFilter: string;
   onToggleCategory: (catId: string) => void;
   onCellClick: (categoryId: string, monthKey: string, monthLabel: string) => void;
+  clickedCell: CellInfo | null;
 }
 
 export const PivotTable: React.FC<PivotTableProps> = ({
@@ -31,6 +32,7 @@ export const PivotTable: React.FC<PivotTableProps> = ({
   categoryFilter,
   onToggleCategory,
   onCellClick,
+  clickedCell,
 }) => {
   return (
     <Table>
@@ -39,11 +41,28 @@ export const PivotTable: React.FC<PivotTableProps> = ({
           <TableHead className="w-[200px] sticky left-0 bg-neutral-950 z-30 border-r border-neutral-800 text-white font-bold">
             KATEGORIA
           </TableHead>
-          {pivotData.columns.map(col => (
-            <TableHead key={col.key} className="text-right min-w-[80px] text-neutral-400 font-normal text-xs">
-              {col.label}
-            </TableHead>
-          ))}
+          {pivotData.columns.map(col => {
+            const isCurrent = col.key === pivotData.currentMonthKey;
+            const isSelected = clickedCell?.monthKey === col.key;
+
+            let className = "text-right min-w-[80px] font-normal text-xs ";
+            if (isSelected) {
+              className += "text-blue-300 bg-blue-900/40 border-x border-blue-500/40 font-bold";
+            } else if (isCurrent) {
+              className += "text-blue-400 bg-blue-900/20 border-x border-blue-500/20";
+            } else {
+              className += "text-neutral-400";
+            }
+
+            return (
+              <TableHead
+                key={col.key}
+                className={className}
+              >
+                {col.label}
+              </TableHead>
+            );
+          })}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -64,6 +83,8 @@ export const PivotTable: React.FC<PivotTableProps> = ({
               onCellClick={onCellClick}
               shouldShowCategory={shouldShowCategory}
               totalValuesMap={pivotData.totalValuesMap}
+              currentMonthKey={pivotData.currentMonthKey}
+              clickedCell={clickedCell}
             />
           );
         })}
@@ -76,8 +97,21 @@ export const PivotTable: React.FC<PivotTableProps> = ({
           </TableCell>
           {pivotData.columns.map(col => {
             const val = pivotData.monthlyTotals[col.key] || 0;
+            const isCurrent = col.key === pivotData.currentMonthKey;
+            const isSelected = clickedCell?.monthKey === col.key;
+
+            let className = "text-right p-2 min-w-[80px] text-xs font-bold ";
+            if (isSelected) {
+              className += "bg-blue-900/40 border-x border-blue-500/40";
+            } else if (isCurrent) {
+              className += "bg-blue-900/20 border-x border-blue-500/20";
+            }
+
             return (
-              <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs font-bold">
+              <TableCell
+                key={col.key}
+                className={className}
+              >
                 {val !== 0 ? (
                   <span className={val < 0 ? "text-red-400" : "text-green-400"}>
                     {formatCurrency(val)}
@@ -97,8 +131,21 @@ export const PivotTable: React.FC<PivotTableProps> = ({
           </TableCell>
           {pivotData.columns.map(col => {
             const val = pivotData.cumulativeTotals[col.key] || 0;
+            const isCurrent = col.key === pivotData.currentMonthKey;
+            const isSelected = clickedCell?.monthKey === col.key;
+
+            let className = "text-right p-2 min-w-[80px] text-xs italic ";
+            if (isSelected) {
+              className += "bg-blue-900/40 border-x border-blue-500/40";
+            } else if (isCurrent) {
+              className += "bg-blue-900/20 border-x border-blue-500/20";
+            }
+
             return (
-              <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs italic">
+              <TableCell
+                key={col.key}
+                className={className}
+              >
                 {val !== 0 ? (
                   <span className={val < 0 ? "text-red-300" : "text-green-300"}>
                     {formatCurrency(val)}
@@ -133,8 +180,21 @@ export const PivotTable: React.FC<PivotTableProps> = ({
           </TableCell>
           {pivotData.columns.map(col => {
             const val = pivotData.balanceDiffs[col.key];
+            const isCurrent = col.key === pivotData.currentMonthKey;
+            const isSelected = clickedCell?.monthKey === col.key;
+
+            let className = "text-right p-2 min-w-[80px] text-xs italic ";
+            if (isSelected) {
+              className += "bg-blue-900/40 border-x border-blue-500/40";
+            } else if (isCurrent) {
+              className += "bg-blue-900/20 border-x border-blue-500/20";
+            }
+
             return (
-              <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs italic">
+              <TableCell
+                key={col.key}
+                className={className}
+              >
                 {val !== null && val !== undefined ? (
                   <span className={val < 0 ? "text-red-500/70" : "text-green-500/70"}>
                     {formatCurrency(val)}

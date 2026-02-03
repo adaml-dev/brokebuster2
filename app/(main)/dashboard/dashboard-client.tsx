@@ -211,6 +211,7 @@ export default function DashboardClient({
             onOpenManualEntry={formActions.handleOpenManualEntryDialog}
             calculationMode={dashboardState.calculationMode}
             onCalculationModeChange={dashboardState.setCalculationMode}
+            currentMonthOffset={new Date().getMonth()}
           />
         </CardHeader>
 
@@ -222,6 +223,7 @@ export default function DashboardClient({
             categoryFilter={dashboardState.categoryFilter}
             onToggleCategory={dashboardState.toggleCategory}
             onCellClick={dashboardState.handleCellClick}
+            clickedCell={dashboardState.clickedCell}
           />
         </CardContent>
       </Card>
