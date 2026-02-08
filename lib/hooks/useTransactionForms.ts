@@ -50,8 +50,8 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
   // === DIALOG OPEN HANDLERS ===
   const handleOpenEditDialog = useCallback((selectedTransactionIds: Set<string>) => {
     if (selectedTransactionIds.size !== 1) {
-      alert(selectedTransactionIds.size === 0 
-        ? 'Zaznacz transakcję do edycji.' 
+      alert(selectedTransactionIds.size === 0
+        ? 'Zaznacz transakcję do edycji.'
         : 'Można edytować tylko jedną transakcję na raz.'
       );
       return;
@@ -63,7 +63,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
       setEditingTransaction(transaction);
       const dateObj = new Date(transaction.date);
       const formattedDate = dateObj.toISOString().split('T')[0];
-      
+
       setEditFormData({
         date: formattedDate,
         transaction_type: transaction.transaction_type || 'planned',
@@ -79,25 +79,26 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
   }, [transactions]);
 
   const handleOpenManualEntryDialog = useCallback(() => {
-    if (!dashboardState.clickedCell) {
-      alert('Najpierw kliknij na komórkę w tabeli, aby wybrać kategorię i miesiąc.');
-      return;
+    let initialDate = new Date().toISOString().split('T')[0];
+    let initialCategory = '';
+
+    if (dashboardState.clickedCell) {
+      const [year, month] = dashboardState.clickedCell.monthKey.split('-');
+      initialDate = `${year}-${month}-01`;
+      initialCategory = dashboardState.clickedCell.categoryId;
     }
-    
-    const [year, month] = dashboardState.clickedCell.monthKey.split('-');
-    const firstDayOfMonth = `${year}-${month}-01`;
-    
+
     setManualEntryFormData(prev => ({
       ...prev,
-      date: firstDayOfMonth,
-      category: dashboardState.clickedCell.categoryId,
+      date: initialDate,
+      category: initialCategory,
       amount: '',
       payee: '',
       description: '',
       seriesRepetitions: 1,
       seriesIntervalMonths: 1,
     }));
-    
+
     setIsManualEntryDialogOpen(true);
   }, [dashboardState.clickedCell]);
 

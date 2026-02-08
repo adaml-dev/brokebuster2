@@ -20,43 +20,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSettings } from "@/components/settings/SettingsContext";
 
 interface SidebarProps {
   userEmail: string;
   onMenuClose?: () => void;
 }
 
-const menuItems = [
-  {
-    section: "Główne",
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/analizy", label: "Analizy", icon: BarChart3 },
-    ],
-  },
-  {
-    section: "Dane",
-    items: [
-      { href: "/transakcje", label: "Transakcje", icon: Wallet },
-      { href: "/kategorie", label: "Kategorie", icon: Tags },
-      { href: "/stany-kont", label: "Stany kont", icon: ListOrdered },
-    ],
-  },
-  {
-    section: "Automatyzacja",
-    items: [
-      { href: "/autokategoryzacje", label: "Autokategoryzacje", icon: Wand2 },
-      { href: "/import", label: "Import danych", icon: Upload },
-    ],
-  },
-  {
-    section: "System",
-    items: [{ href: "/ustawienia", label: "Ustawienia", icon: Settings }],
-  },
-];
-
 export function Sidebar({ userEmail, onMenuClose }: SidebarProps) {
   const pathname = usePathname();
+  const { settings } = useSettings();
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -64,6 +37,36 @@ export function Sidebar({ userEmail, onMenuClose }: SidebarProps) {
     }
     return pathname.startsWith(href);
   };
+
+  const menuItems = [
+    {
+      section: "Główne",
+      items: [
+        settings.showDashboard1 && { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        settings.showDashboard2 && { href: "/dashboard2", label: "Dashboard 2", icon: LayoutDashboard },
+        { href: "/analizy", label: "Analizy", icon: BarChart3 },
+      ].filter(Boolean) as { href: string; label: string; icon: any }[],
+    },
+    {
+      section: "Dane",
+      items: [
+        { href: "/transakcje", label: "Transakcje", icon: Wallet },
+        { href: "/kategorie", label: "Kategorie", icon: Tags },
+        { href: "/stany-kont", label: "Stany kont", icon: ListOrdered },
+      ],
+    },
+    {
+      section: "Automatyzacja",
+      items: [
+        { href: "/autokategoryzacje", label: "Autokategoryzacje", icon: Wand2 },
+        { href: "/import", label: "Import danych", icon: Upload },
+      ],
+    },
+    {
+      section: "System",
+      items: [{ href: "/ustawienia", label: "Ustawienia", icon: Settings }],
+    },
+  ];
 
   return (
     <div className="flex flex-col h-full bg-neutral-950 text-white">
@@ -84,11 +87,10 @@ export function Sidebar({ userEmail, onMenuClose }: SidebarProps) {
               <Link key={item.href} href={item.href} onClick={onMenuClose}>
                 <Button
                   variant={isActive(item.href) ? "secondary" : "ghost"}
-                  className={`w-full justify-start ${
-                    isActive(item.href)
-                      ? "bg-neutral-800"
-                      : "text-neutral-400 hover:text-white"
-                  }`}
+                  className={`w-full justify-start ${isActive(item.href)
+                    ? "bg-neutral-800"
+                    : "text-neutral-400 hover:text-white"
+                    }`}
                 >
                   <item.icon className="mr-2 h-4 w-4" />
                   {item.label}
