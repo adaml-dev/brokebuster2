@@ -291,6 +291,7 @@ export default function Dashboard2Client({
                                 <TableHead className="w-[80px]">Miesiąc</TableHead>
                                 <TableHead className="text-right">Suma</TableHead>
                                 <TableHead className="text-right">Narast.</TableHead>
+                                <TableHead className="text-right px-2">Kat.</TableHead>
                                 <TableHead className="text-right px-2">Konto</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -305,7 +306,6 @@ export default function Dashboard2Client({
                                         onClick={() => {
                                             setSelectedMonth(col.key);
                                             setMiddlePanelMode('categories');
-                                            setSelectedCategory(null);
                                         }}
                                     >
                                         <TableCell className="font-medium whitespace-nowrap py-2">{col.label}</TableCell>
@@ -314,6 +314,9 @@ export default function Dashboard2Client({
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-muted-foreground whitespace-nowrap py-2">
                                             {formatCurrency(pivotData.cumulativeTotals[col.key] || 0)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono whitespace-nowrap py-2 px-2 text-muted-foreground">
+                                            {selectedCategory ? formatCurrency(pivotData.totalValuesMap[selectedCategory]?.[col.key] || 0) : "-"}
                                         </TableCell>
                                         <TableCell
                                             className="text-right font-mono hover:bg-primary/10 cursor-alias whitespace-nowrap py-2 px-2"
