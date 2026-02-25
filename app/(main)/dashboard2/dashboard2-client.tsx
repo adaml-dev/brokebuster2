@@ -592,7 +592,7 @@ export default function Dashboard2Client({
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-xs truncate max-w-[80px] py-2" title={t.source || t.origin}>
+                                        <TableCell className="text-xs truncate max-w-[80px] py-2" title={t.source || t.origin || undefined}>
                                             {t.source || t.origin}
                                         </TableCell>
                                         <TableCell className={cn(
