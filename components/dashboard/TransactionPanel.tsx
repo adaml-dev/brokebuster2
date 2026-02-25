@@ -8,38 +8,40 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Minimize2, Maximize2, Plus, ArrowDownToLine } from "lucide-react";
-import { CellInfo, Transaction, Category } from "@/lib/types/dashboard";
+import { CellInfo, Transaction, Category, Tag } from "@/lib/types/dashboard";
 import { formatCurrency, formatDate, getCategoryPath } from "@/lib/utils/dashboard";
+import { TagBadge } from "../transactions/TagBadge";
+import { cn } from "@/lib/utils";
 
 interface TransactionPanelProps {
   clickedCell: CellInfo | null;
   isCellInfoExpanded: boolean;
   onToggleExpand: () => void;
   onOpenManualEntry: () => void;
-  
+
   // Transaction display
   showUnassigned: boolean;
   onToggleUnassigned: () => void;
   filteredTransactions: Transaction[];
   transactionFilter: string;
   onTransactionFilterChange: (filter: string) => void;
-  
+
   // Sorting
   sortColumn: string;
   sortDirection: 'asc' | 'desc';
   onSort: (column: string) => void;
-  
+
   // Selection
   selectedTransactionIds: Set<string>;
   onToggleTransaction: (id: string) => void;
   onToggleAllTransactions: () => void;
-  
+
   // Actions
   onAssignToCategory: () => void;
   onUnlinkFromCategory: () => void;
   onDeleteTransactions: () => void;
   onEditTransactions: () => void;
-  
+
   // Category assignment
   categories: Category[];
   assignToCategoryId: string;
@@ -47,6 +49,11 @@ interface TransactionPanelProps {
   categorySearchFilter: string;
   onCategorySearchFilterChange: (filter: string) => void;
   filteredCategories: Category[];
+
+  // Tags
+  tags: Tag[];
+  selectedTags: string[];
+  onSelectedTagsChange: (tagIds: string[]) => void;
 }
 
 export const TransactionPanel: React.FC<TransactionPanelProps> = ({
@@ -75,14 +82,16 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
   categorySearchFilter,
   onCategorySearchFilterChange,
   filteredCategories,
+  tags,
+  selectedTags,
+  onSelectedTagsChange,
 }) => {
   if (!clickedCell) return null;
 
   return (
-    <div 
-      className={`border-b-2 border-purple-500/40 bg-gradient-to-br from-purple-900/40 via-violet-900/30 to-neutral-800 shadow-xl shadow-purple-900/20 transition-all duration-300 overflow-hidden ${
-        isCellInfoExpanded ? 'h-[65vh] md:h-[50vh]' : 'h-auto max-h-[40vh] md:max-h-none'
-      }`}
+    <div
+      className={`border-b-2 border-purple-500/40 bg-gradient-to-br from-purple-900/40 via-violet-900/30 to-neutral-800 shadow-xl shadow-purple-900/20 transition-all duration-300 overflow-hidden ${isCellInfoExpanded ? 'h-[65vh] md:h-[50vh]' : 'h-auto max-h-[40vh] md:max-h-none'
+        }`}
     >
       <div className="p-3 md:p-4 overflow-y-auto overflow-x-auto backdrop-blur-sm h-full">
         {/* Nagłówek */}
@@ -96,7 +105,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
             </p>
           </div>
         </div>
-        
+
         {/* Rozszerzona sekcja */}
         {isCellInfoExpanded && (
           <div className="mt-4 p-3 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(65vh - 120px)' }}>
@@ -105,22 +114,20 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
               <div className="flex items-center gap-1 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
                 <button
                   onClick={onToggleUnassigned}
-                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${
-                    !showUnassigned ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'
-                  }`}
+                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${!showUnassigned ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'
+                    }`}
                 >
                   Przypisane
                 </button>
                 <button
                   onClick={onToggleUnassigned}
-                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${
-                    showUnassigned ? 'bg-orange-600 text-white' : 'text-neutral-400 hover:text-white'
-                  }`}
+                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${showUnassigned ? 'bg-orange-600 text-white' : 'text-neutral-400 hover:text-white'
+                    }`}
                 >
                   Nieprzypisane
                 </button>
               </div>
-              
+
               <input
                 type="text"
                 placeholder="Filtruj..."
@@ -129,7 +136,44 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
                 className="flex-1 h-9 px-2 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
+            {/* Tag Filter bar */}
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 px-2 py-1 bg-neutral-950/50 rounded-md border border-neutral-800 mb-3">
+                {tags.map(tag => (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      if (selectedTags.includes(tag.id)) {
+                        onSelectedTagsChange(selectedTags.filter(id => id !== tag.id));
+                      } else {
+                        onSelectedTagsChange([...selectedTags, tag.id]);
+                      }
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                      selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
+                    )}
+                    style={{
+                      backgroundColor: tag.color + '20',
+                      color: tag.color,
+                      border: `1px solid ${tag.color}40`
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={() => onSelectedTagsChange([])}
+                    className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
+                  >
+                    Wyczyść
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Panel przypisywania (unassigned) */}
             {showUnassigned && selectedTransactionIds.size > 0 && (
               <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-orange-500/50">
@@ -164,7 +208,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Panel akcji (assigned) */}
             {!showUnassigned && selectedTransactionIds.size > 0 && (
               <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-blue-500/50">
@@ -178,7 +222,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
                 </div>
               </div>
             )}
-            
+
             {/* Tabela transakcji */}
             <div className="overflow-auto flex-1">
               <Table>
@@ -232,7 +276,18 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
                           <span className={Number(transaction.amount) < 0 ? 'text-red-400' : 'text-green-400'}>{formatCurrency(Number(transaction.amount))}</span>
                         </TableCell>
                         <TableCell className="text-xs text-neutral-300 max-w-[200px] truncate">{transaction.payee || '-'}</TableCell>
-                        <TableCell className="text-xs text-neutral-400 max-w-[250px] truncate">{transaction.description || '-'}</TableCell>
+                        <TableCell className="text-xs text-neutral-400 max-w-[250px] truncate">
+                          <div className="flex flex-col gap-1">
+                            <span>{transaction.description || '-'}</span>
+                            {transaction.tags && transaction.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {transaction.tags.map(tag => (
+                                  <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-xs text-neutral-300 max-w-[150px] truncate">{transaction.origin || '-'}</TableCell>
                         <TableCell className="text-xs text-neutral-500">{transaction.source || '-'}</TableCell>
                       </TableRow>

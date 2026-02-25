@@ -17,6 +17,7 @@ interface UseTransactionFiltersProps {
   sortDirection: 'asc' | 'desc';
   categorySearchFilter: string;
   setAssignToCategoryId: (id: string) => void;
+  selectedTags: string[];
 }
 
 export const useTransactionFilters = ({
@@ -29,6 +30,7 @@ export const useTransactionFilters = ({
   sortDirection,
   categorySearchFilter,
   setAssignToCategoryId,
+  selectedTags,
 }: UseTransactionFiltersProps) => {
 
   // Funkcja do pobierania transakcji nieprzypisanych dla danego miesiąca
@@ -66,6 +68,13 @@ export const useTransactionFilters = ({
       );
     }
 
+    // Tag Filter
+    if (selectedTags && selectedTags.length > 0) {
+      filtered = filtered.filter(t =>
+        t.tags && t.tags.some(tag => selectedTags.includes(tag.id))
+      );
+    }
+
     // Sortowanie
     const sorted = [...filtered].sort((a, b) => {
       let aVal = (a as any)[sortColumn];
@@ -95,7 +104,7 @@ export const useTransactionFilters = ({
     });
 
     return sorted;
-  }, [clickedCell, showUnassigned, transactionFilter, sortColumn, sortDirection, getUnassignedTransactionsForMonth]);
+  }, [clickedCell, showUnassigned, transactionFilter, sortColumn, sortDirection, getUnassignedTransactionsForMonth, selectedTags]);
 
   // Funkcja pomocnicza do sprawdzania czy kategoria lub jej dzieci pasują do filtra
   const categoryMatchesFilter = useCallback((cat: Category, searchTerm: string): boolean => {

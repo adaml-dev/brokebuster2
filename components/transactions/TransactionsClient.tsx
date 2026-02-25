@@ -21,19 +21,12 @@ import BulkEditDialog from "./BulkEditDialog";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 import { isLeafCategory } from "@/lib/utils/dashboard";
-import { Category } from "@/lib/types/dashboard";
+import { Category, Tag, Transaction } from "@/lib/types/dashboard";
+import { TagBadge } from "./TagBadge";
+import { cn } from "@/lib/utils";
 
 // Types
-interface Transaction {
-  id: string;
-  date: string;
-  payee: string;
-  description: string;
-  amount: number;
-  category: string | null;
-  origin: string;
-  transaction_type: "planned" | "done";
-}
+// Local Transaction interface removed - using shared Transaction from lib/types/dashboard
 
 export default function TransactionsClient() {
   const queryClient = useQueryClient();
@@ -48,6 +41,7 @@ export default function TransactionsClient() {
   const [dateTo, setDateTo] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const [sortColumn, setSortColumn] = useState<string>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -100,6 +94,17 @@ export default function TransactionsClient() {
   const transactions: Transaction[] = transactionsData || [];
   const categories: Category[] = categoriesData || [];
 
+  const { data: tagsData } = useQuery({
+    queryKey: ["tags"],
+    queryFn: async () => {
+      const res = await fetch("/api/tags");
+      const data = await res.json();
+      return data || [];
+    },
+  });
+
+  const tags: Tag[] = tagsData || [];
+
   // ===== MUTATIONS =====
   const deleteTransactionMutation = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -149,13 +154,13 @@ export default function TransactionsClient() {
   });
 
   // ===== HELPER FUNCTIONS =====
-  const getCategoryName = (categoryId: string | null) => {
+  const getCategoryName = (categoryId: string | null | undefined) => {
     if (!categoryId) return "-";
     const category = categories.find((c) => c.id === categoryId);
     return category ? category.name : categoryId;
   };
 
-  const getOriginBadgeVariant = (origin: string) => {
+  const getOriginBadgeVariant = (origin: string | null | undefined) => {
     const lower = origin?.toLowerCase() || "";
     if (lower.includes("mbank")) return "info";
     if (lower.includes("ing")) return "warning";
@@ -178,6 +183,7 @@ export default function TransactionsClient() {
     setDateTo("");
     setMinAmount("");
     setMaxAmount("");
+    setSelectedTags([]);
   };
 
   // ===== FILTERING & SORTING =====
@@ -240,6 +246,13 @@ export default function TransactionsClient() {
       filtered = filtered.filter((t) => Math.abs(t.amount) <= parseFloat(maxAmount));
     }
 
+    // Tag filter
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter((t) =>
+        t.tags && t.tags.some(tag => selectedTags.includes(tag.id))
+      );
+    }
+
     // Sorting
     filtered.sort((a, b) => {
       let aVal: any = a[sortColumn as keyof Transaction];
@@ -256,7 +269,7 @@ export default function TransactionsClient() {
     });
 
     return filtered;
-  }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, categoryFilter, dateFrom, dateTo, minAmount, maxAmount, sortColumn, sortDirection, categories]);
+  }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, categoryFilter, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
 
   // ===== PAGINATION =====
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
@@ -269,7 +282,7 @@ export default function TransactionsClient() {
   const transactionsWithBalance = useMemo(() => {
     let balance = 0;
     return paginatedTransactions.map((t) => {
-      balance += t.amount;
+      balance += (t.amount || 0);
       return { ...t, cumulativeBalance: balance };
     });
   }, [paginatedTransactions]);
@@ -278,21 +291,21 @@ export default function TransactionsClient() {
   const transactionSums = useMemo(() => {
     const planned = filteredAndSortedTransactions
       .filter((t) => t.transaction_type === "planned")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
     const done = filteredAndSortedTransactions
       .filter((t) => t.transaction_type === "done")
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
     return { planned, done, total: planned + done };
   }, [filteredAndSortedTransactions]);
 
   // ===== UNIQUE VALUES =====
   const uniqueOrigins = useMemo(() => {
-    const origins = new Set(transactions.map((t) => t.origin).filter(Boolean));
+    const origins = new Set(transactions.map((t) => t.origin).filter((o): o is string => Boolean(o)));
     return Array.from(origins);
   }, [transactions]);
 
   const uniqueCategories = useMemo(() => {
-    const cats = new Set(transactions.map((t) => t.category).filter(Boolean));
+    const cats = new Set(transactions.map((t) => t.category).filter((c): c is string => Boolean(c)));
     return Array.from(cats);
   }, [transactions]);
 
@@ -425,7 +438,7 @@ export default function TransactionsClient() {
       Payee: t.payee,
       Opis: t.description,
       Kategoria: getCategoryName(t.category),
-      Kwota: t.amount,
+      Kwota: t.amount || 0,
       Pochodzenie: t.origin,
       Typ: t.transaction_type === "done" ? "Dokonana" : "Planowana",
     }));
@@ -570,6 +583,46 @@ export default function TransactionsClient() {
           />
         </div>
       </div>
+
+      {/* Tag Filter bar */}
+      {tags.length > 0 && (
+        <div className="pt-2">
+          <Label className="text-xs mb-1 block">Tagi</Label>
+          <div className="flex flex-wrap gap-1 p-2 bg-neutral-950/50 rounded-md border border-neutral-800">
+            {tags.map((tag: Tag) => (
+              <button
+                key={tag.id}
+                onClick={() => {
+                  if (selectedTags.includes(tag.id)) {
+                    setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                  } else {
+                    setSelectedTags([...selectedTags, tag.id]);
+                  }
+                }}
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                  selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
+                )}
+                style={{
+                  backgroundColor: tag.color + '20',
+                  color: tag.color,
+                  border: `1px solid ${tag.color}40`
+                }}
+              >
+                {tag.name}
+              </button>
+            ))}
+            {selectedTags.length > 0 && (
+              <button
+                onClick={() => setSelectedTags([])}
+                className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
+              >
+                Wyczyść
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -695,8 +748,19 @@ export default function TransactionsClient() {
                       />
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{t.date}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={t.payee}>{t.payee}</TableCell>
-                    <TableCell className="max-w-md truncate" title={t.description}>{t.description}</TableCell>
+                    <TableCell className="max-w-[200px] truncate" title={t.payee || undefined}>{t.payee}</TableCell>
+                    <TableCell className="max-w-md truncate" title={t.description || undefined}>
+                      <div className="flex flex-col gap-1">
+                        <span>{t.description}</span>
+                        {t.tags && t.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {t.tags.map((tag: Tag) => (
+                              <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">{getCategoryName(t.category)}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       <Badge variant={getOriginBadgeVariant(t.origin)}>
@@ -708,11 +772,11 @@ export default function TransactionsClient() {
                         {t.transaction_type === "done" ? "Done" : "Planned"}
                       </Badge>
                     </TableCell>
-                    <TableCell className={`text-right font-medium whitespace-nowrap ${t.amount >= 0 ? "text-green-500" : "text-red-500"}`}>
-                      {t.amount.toFixed(2)}
+                    <TableCell className={`text-right font-medium whitespace-nowrap ${(t.amount || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
+                      {(t.amount || 0).toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right font-medium whitespace-nowrap">
-                      {t.cumulativeBalance.toFixed(2)}
+                      {(t.cumulativeBalance as number).toFixed(2)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex gap-1">

@@ -13,11 +13,15 @@ export default async function Dashboard2Page() {
         { data: accounts },
         { data: categories },
         { data: accountStatements },
+        { data: allTags },
     ] = await Promise.all([
-        supabase.from("transactions").select("*").order("date", { ascending: false }).range(0, 9999),
+        supabase.from("transactions").select("*, tags(*)")
+            .order("date", { ascending: false })
+            .range(0, 9999),
         supabase.from("accounts").select("*").order("created_at", { ascending: false }),
         supabase.from("categories").select("*").order("name", { ascending: true }),
         supabase.from("account_statements").select("*").order("date", { ascending: false }),
+        supabase.from("tags").select("*").order("name", { ascending: true }),
     ]);
 
     return (
@@ -26,6 +30,7 @@ export default async function Dashboard2Page() {
             accounts={accounts || []}
             categories={categories || []}
             accountStatements={accountStatements || []}
+            tags={allTags || []}
         />
     );
 }

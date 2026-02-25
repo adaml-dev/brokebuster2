@@ -14,19 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Category } from "@/lib/types/dashboard";
+import { Category, Transaction } from "@/lib/types/dashboard";
 import { isLeafCategory } from "@/lib/utils/dashboard";
+import { TagMultiSelect } from "./TagMultiSelect";
 
-interface Transaction {
-  id: string;
-  date: string;
-  payee: string;
-  description: string;
-  amount: number;
-  category: string | null;
-  origin: string;
-  transaction_type: "planned" | "done";
-}
+// Local interface removed, using shared Transaction from types
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -54,18 +46,20 @@ export default function EditTransactionDialog({
     category: "",
     origin: "",
     transaction_type: "done" as "done" | "planned",
+    tagIds: [] as string[],
   });
 
   useEffect(() => {
     if (transaction) {
       setFormData({
         date: transaction.date,
-        payee: transaction.payee,
-        description: transaction.description,
+        payee: transaction.payee || "",
+        description: transaction.description || "",
         amount: String(transaction.amount),
         category: transaction.category || "",
-        origin: transaction.origin,
+        origin: transaction.origin || "",
         transaction_type: transaction.transaction_type,
+        tagIds: transaction.tags?.map(t => t.id) || [],
       });
     }
   }, [transaction]);
@@ -91,6 +85,7 @@ export default function EditTransactionDialog({
             origin: formData.origin,
             transaction_type: formData.transaction_type,
           },
+          tagIds: formData.tagIds,
         }),
       });
 
@@ -227,6 +222,13 @@ export default function EditTransactionDialog({
                 <SelectItem value="planned">Planned</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="pt-2">
+            <TagMultiSelect
+              selectedTagIds={formData.tagIds}
+              onChange={(tagIds) => setFormData({ ...formData, tagIds })}
+            />
           </div>
 
           <DialogFooter>

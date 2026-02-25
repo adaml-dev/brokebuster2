@@ -24,7 +24,8 @@ import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDia
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 
 // Typy
-import { Transaction, Account, Category, WeightLog, Rule, AccountStatement } from "@/lib/types/dashboard";
+import { Transaction, Account, Category, WeightLog, Rule, AccountStatement, Tag } from "@/lib/types/dashboard";
+import { TagBadge } from "@/components/transactions/TagBadge";
 
 interface DashboardClientProps {
   transactions: Transaction[];
@@ -33,6 +34,7 @@ interface DashboardClientProps {
   weightLogs: WeightLog[];
   rules: Rule[];
   accountStatements: AccountStatement[];
+  tags: Tag[];
 }
 
 export default function DashboardClient({
@@ -42,8 +44,10 @@ export default function DashboardClient({
   weightLogs,
   rules,
   accountStatements,
+  tags,
 }: DashboardClientProps) {
   const [selectedYear] = useState(new Date().getFullYear());
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // === HOOKI ===
 
@@ -71,6 +75,7 @@ export default function DashboardClient({
     sortDirection: dashboardState.sortDirection,
     categorySearchFilter: dashboardState.categorySearchFilter,
     setAssignToCategoryId: dashboardState.setAssignToCategoryId,
+    selectedTags: selectedTags,
   });
 
   // Transaction actions (API calls)
@@ -185,6 +190,9 @@ export default function DashboardClient({
           categorySearchFilter={dashboardState.categorySearchFilter}
           onCategorySearchFilterChange={dashboardState.setCategorySearchFilter}
           filteredCategories={transactionFilters.getFilteredAndSortedCategories}
+          tags={tags}
+          selectedTags={selectedTags}
+          onSelectedTagsChange={setSelectedTags}
         />
 
         {/* Toolbar */}

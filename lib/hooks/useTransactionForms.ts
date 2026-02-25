@@ -30,6 +30,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
     origin: '',
     source: '',
     category: '',
+    tagIds: [] as string[],
   });
 
   // === MANUAL ENTRY DIALOG STATE ===
@@ -45,6 +46,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
     categoryFilter: '',
     seriesRepetitions: 1,
     seriesIntervalMonths: 1,
+    tagIds: [] as string[],
   });
 
   // === DIALOG OPEN HANDLERS ===
@@ -73,6 +75,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
         origin: transaction.origin || '',
         source: transaction.source || '',
         category: transaction.category || '',
+        tagIds: transaction.tags?.map(t => t.id) || [],
       });
       setIsEditDialogOpen(true);
     }

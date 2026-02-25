@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabase
       .from("transactions")
-      .select("*")
+      .select("*, tags(*)")
       .order("date", { ascending: false });
 
     if (error) {

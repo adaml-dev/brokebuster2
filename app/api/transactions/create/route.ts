@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     // Przygotuj bazowy obiekt transakcji
     const allowedFields = ['transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category'];
     const baseData: any = {};
-    
+
     for (const field of allowedFields) {
       if (transactionData[field] !== undefined && transactionData[field] !== '') {
         baseData[field] = transactionData[field];
@@ -53,11 +53,11 @@ export async function POST(request: NextRequest) {
     if (!baseData.transaction_type) {
       baseData.transaction_type = 'planned';
     }
-    
+
     if (!baseData.origin) {
       baseData.origin = 'manual';
     }
-    
+
     if (!baseData.source) {
       baseData.source = 'manual';
     }
@@ -65,18 +65,18 @@ export async function POST(request: NextRequest) {
     // Przygotuj tablicę transakcji do wstawienia (seria)
     const transactionsToInsert = [];
     const startDate = new Date(transactionData.date);
-    
+
     for (let i = 0; i < seriesRepetitions; i++) {
       // Oblicz datę dla tej iteracji
       const transactionDate = new Date(startDate);
       transactionDate.setMonth(transactionDate.getMonth() + (i * seriesIntervalMonths));
-      
+
       // Stwórz kopię danych z odpowiednią datą
       const transactionEntry = {
         ...baseData,
         date: transactionDate.toISOString().split('T')[0], // Format YYYY-MM-DD
       };
-      
+
       transactionsToInsert.push(transactionEntry);
     }
 
@@ -92,6 +92,30 @@ export async function POST(request: NextRequest) {
         { error: "Failed to create transaction(s)", details: error.message },
         { status: 500 }
       );
+    }
+
+    // 2. Jeśli podano tagId, przypisz je do wszystkich stworzonych transakcji
+    const tagIds = transactionData.tagIds;
+    if (tagIds && Array.isArray(tagIds) && tagIds.length > 0 && data && data.length > 0) {
+      const tagLinks: any[] = [];
+
+      data.forEach((transaction: any) => {
+        tagIds.forEach((tagId: string) => {
+          tagLinks.push({
+            transaction_id: transaction.id,
+            tag_id: tagId
+          });
+        });
+      });
+
+      const { error: insertTagsError } = await supabase
+        .from("transaction_tags")
+        .insert(tagLinks);
+
+      if (insertTagsError) {
+        console.error("Error inserting transaction tags:", insertTagsError);
+        // Nie przerywamy, bo transakcje już zostały stworzone, ale warto zalogować błąd
+      }
     }
 
     return NextResponse.json({

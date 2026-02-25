@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { TagMultiSelect } from '@/components/transactions/TagMultiSelect';
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -14,8 +15,8 @@ interface EditTransactionDialogProps {
   onCancel: () => void;
 }
 
-export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({ 
-  isOpen, onOpenChange, formData, onFormChange, onSave, onCancel 
+export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
+  isOpen, onOpenChange, formData, onFormChange, onSave, onCancel
 }) => {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -26,7 +27,7 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
             Wprowadź zmiany w polach poniżej. Pola, które pozostawisz puste, nie zostaną zaktualizowane.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="grid gap-4 py-4">
           {/* Date */}
           <div className="grid grid-cols-4 items-center gap-4">
@@ -35,24 +36,24 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
               id="edit-date"
               type="date"
               value={formData.date}
-              onChange={(e) => onFormChange({...formData, date: e.target.value})}
+              onChange={(e) => onFormChange({ ...formData, date: e.target.value })}
               className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
             />
           </div>
-          
+
           {/* Type */}
-           <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-type" className="text-right text-neutral-300">Typ</Label>
-              <select
-                id="edit-type"
-                value={formData.transaction_type}
-                onChange={(e) => onFormChange({...formData, transaction_type: e.target.value})}
-                className="col-span-3 h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="planned">Planned</option>
-                <option value="done">Done</option>
-              </select>
-            </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="edit-type" className="text-right text-neutral-300">Typ</Label>
+            <select
+              id="edit-type"
+              value={formData.transaction_type}
+              onChange={(e) => onFormChange({ ...formData, transaction_type: e.target.value })}
+              className="col-span-3 h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="planned">Planned</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
 
           {/* Amount */}
           <div className="grid grid-cols-4 items-center gap-4">
@@ -62,7 +63,7 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
               type="number"
               step="0.01"
               value={formData.amount}
-              onChange={(e) => onFormChange({...formData, amount: e.target.value})}
+              onChange={(e) => onFormChange({ ...formData, amount: e.target.value })}
               className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
             />
           </div>
@@ -73,7 +74,7 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
             <Input
               id="edit-payee"
               value={formData.payee}
-              onChange={(e) => onFormChange({...formData, payee: e.target.value})}
+              onChange={(e) => onFormChange({ ...formData, payee: e.target.value })}
               className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
             />
           </div>
@@ -84,38 +85,51 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
             <Input
               id="edit-description"
               value={formData.description}
-              onChange={(e) => onFormChange({...formData, description: e.target.value})}
+              onChange={(e) => onFormChange({ ...formData, description: e.target.value })}
               className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
             />
           </div>
-          
-          {/* Origin */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-origin" className="text-right text-neutral-300">
-                Pochodzenie
-              </Label>
-              <Input
-                id="edit-origin"
-                value={formData.origin}
-                onChange={(e) => onFormChange({...formData, origin: e.target.value})}
-                className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
-              />
-            </div>
 
-            {/* Source */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-source" className="text-right text-neutral-300">
-                Źródło
-              </Label>
-              <Input
-                id="edit-source"
-                value={formData.source}
-                onChange={(e) => onFormChange({...formData, source: e.target.value})}
-                className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
+          {/* Origin */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="edit-origin" className="text-right text-neutral-300">
+              Pochodzenie
+            </Label>
+            <Input
+              id="edit-origin"
+              value={formData.origin}
+              onChange={(e) => onFormChange({ ...formData, origin: e.target.value })}
+              className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
+            />
+          </div>
+
+          {/* Source */}
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="edit-source" className="text-right text-neutral-300">
+              Źródło
+            </Label>
+            <Input
+              id="edit-source"
+              value={formData.source}
+              onChange={(e) => onFormChange({ ...formData, source: e.target.value })}
+              className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
+            />
+          </div>
+
+          {/* Tags */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right text-neutral-300 pt-2">
+              Tagi
+            </Label>
+            <div className="col-span-3">
+              <TagMultiSelect
+                selectedTagIds={formData.tagIds || []}
+                onChange={(tagIds) => onFormChange({ ...formData, tagIds })}
               />
             </div>
+          </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} className="border-neutral-700 text-neutral-300 hover:bg-neutral-800">Anuluj</Button>
           <Button onClick={onSave} className="bg-blue-600 hover:bg-blue-700 text-white">Zapisz zmiany</Button>

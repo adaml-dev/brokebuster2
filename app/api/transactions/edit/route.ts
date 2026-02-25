@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Pobierz dane z requestu
-    const { transactionId, updates } = await request.json();
+    const { transactionId, updates, tagIds } = await request.json();
 
     // Walidacja
     if (!transactionId) {
@@ -28,51 +28,87 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!updates || typeof updates !== 'object') {
+    if ((!updates || typeof updates !== 'object') && tagIds === undefined) {
       return NextResponse.json(
-        { error: "Updates object is required" },
+        { error: "Updates or tagIds are required" },
         { status: 400 }
       );
     }
 
-    // Przygotuj obiekt do aktualizacji - tylko pola, które są dozwolone
+    // Przygotuj obiekt do aktualizacji transakcji
     const allowedFields = ['date', 'transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category'];
     const updateData: any = {};
-    
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined) {
-        updateData[field] = updates[field];
+
+    if (updates) {
+      for (const field of allowedFields) {
+        if (updates[field] !== undefined) {
+          updateData[field] = updates[field];
+        }
       }
     }
 
-    // Sprawdź czy są jakieś dane do aktualizacji
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json(
-        { error: "No valid fields to update" },
-        { status: 400 }
-      );
+    let transactionData = null;
+
+    // 1. Aktualizuj pola transakcji jeśli są podane
+    if (Object.keys(updateData).length > 0) {
+      const { data, error } = await supabase
+        .from("transactions")
+        .update(updateData)
+        .eq("id", transactionId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error updating transaction fields:", error);
+        return NextResponse.json(
+          { error: "Failed to update transaction", details: error.message },
+          { status: 500 }
+        );
+      }
+      transactionData = data;
     }
 
-    // Aktualizuj transakcję w bazie danych
-    const { data, error } = await supabase
-      .from("transactions")
-      .update(updateData)
-      .eq("id", transactionId)
-      .select()
-      .single();
+    // 2. Aktualizuj tagi jeśli są podane
+    if (tagIds !== undefined && Array.isArray(tagIds)) {
+      // Najpierw usuń istniejące powiązania
+      const { error: deleteError } = await supabase
+        .from("transaction_tags")
+        .delete()
+        .eq("transaction_id", transactionId);
 
-    if (error) {
-      console.error("Error updating transaction:", error);
-      return NextResponse.json(
-        { error: "Failed to update transaction", details: error.message },
-        { status: 500 }
-      );
+      if (deleteError) {
+        console.error("Error deleting old transaction tags:", deleteError);
+        return NextResponse.json(
+          { error: "Failed to update tags", details: deleteError.message },
+          { status: 500 }
+        );
+      }
+
+      // Wstaw nowe powiązania
+      if (tagIds.length > 0) {
+        const tagLinks = tagIds.map(tagId => ({
+          transaction_id: transactionId,
+          tag_id: tagId
+        }));
+
+        const { error: insertError } = await supabase
+          .from("transaction_tags")
+          .insert(tagLinks);
+
+        if (insertError) {
+          console.error("Error inserting new transaction tags:", insertError);
+          return NextResponse.json(
+            { error: "Failed to update tags", details: insertError.message },
+            { status: 500 }
+          );
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
       message: "Transaction updated successfully",
-      transaction: data,
+      transaction: transactionData,
     });
   } catch (error) {
     console.error("Unexpected error:", error);

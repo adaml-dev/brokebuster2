@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Transaction, Account, Category, AccountStatement, PivotData, ColumnData, SortDirection } from "@/lib/types/dashboard";
+import { Transaction, Account, Category, AccountStatement, PivotData, ColumnData, SortDirection, Tag } from "@/lib/types/dashboard";
 import { usePivotCalculations } from "@/lib/hooks/usePivotCalculations";
 import { useTransactionActions } from "@/lib/hooks/useTransactionActions";
 import { useTransactionForms } from "@/lib/hooks/useTransactionForms";
@@ -20,12 +20,14 @@ import {
 } from "lucide-react";
 import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
+import { TagBadge } from "@/components/transactions/TagBadge";
 
 interface Dashboard2ClientProps {
     transactions: Transaction[];
     accounts: Account[];
     categories: Category[];
     accountStatements: AccountStatement[];
+    tags: Tag[];
 }
 
 type TransactionFilterState = 'all' | 'done' | 'planned';
@@ -35,6 +37,7 @@ export default function Dashboard2Client({
     accounts,
     categories,
     accountStatements,
+    tags,
 }: Dashboard2ClientProps) {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(getMonthKey(new Date()));
@@ -51,6 +54,7 @@ export default function Dashboard2Client({
     const [transactionStatusFilter, setTransactionStatusFilter] = useState<TransactionFilterState>('all');
     const [sortColumn, setSortColumn] = useState<string>("date");
     const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+    const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
     const pivotData = usePivotCalculations({
         transactions,
@@ -129,6 +133,11 @@ export default function Dashboard2Client({
                 const matchesCat = catName?.includes(search);
 
                 if (!matchesDesc && !matchesPayee && !matchesOrigin && !matchesCat) return false;
+            }
+
+            // 5. Tag Filter
+            if (selectedTags.length > 0) {
+                if (!t.tags || !t.tags.some(tag => selectedTags.includes(tag.id))) return false;
             }
 
             return true;
@@ -489,6 +498,43 @@ export default function Dashboard2Client({
                                 </Button>
                             </div>
                         </div>
+
+                        {/* Tag Filter */}
+                        {tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 px-1 py-1 bg-neutral-800/50 rounded mt-1 border border-neutral-700/50">
+                                {tags.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        onClick={() => {
+                                            setSelectedTags(prev =>
+                                                prev.includes(tag.id)
+                                                    ? prev.filter(id => id !== tag.id)
+                                                    : [...prev, tag.id]
+                                            );
+                                        }}
+                                        className={cn(
+                                            "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                                            selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-primary" : "opacity-40 hover:opacity-100"
+                                        )}
+                                        style={{
+                                            backgroundColor: tag.color + '20',
+                                            color: tag.color,
+                                            border: `1px solid ${tag.color}40`
+                                        }}
+                                    >
+                                        {tag.name}
+                                    </button>
+                                ))}
+                                {selectedTags.length > 0 && (
+                                    <button
+                                        onClick={() => setSelectedTags([])}
+                                        className="text-[10px] text-muted-foreground hover:text-white px-1 ml-1"
+                                    >
+                                        Wyczyść
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-auto p-0 max-h-[600px] lg:max-h-full">
@@ -535,7 +581,16 @@ export default function Dashboard2Client({
                                             {t.payee || "-"}
                                         </TableCell>
                                         <TableCell className="max-w-[150px] py-2 text-xs text-muted-foreground truncate" title={t.description || ''}>
-                                            {t.description || "-"}
+                                            <div className="flex flex-col gap-1">
+                                                <span>{t.description || "-"}</span>
+                                                {t.tags && t.tags.length > 0 && (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {t.tags.map(tag => (
+                                                            <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </TableCell>
                                         <TableCell className="text-xs truncate max-w-[80px] py-2" title={t.source || t.origin}>
                                             {t.source || t.origin}

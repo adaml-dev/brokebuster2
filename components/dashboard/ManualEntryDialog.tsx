@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Category } from '@/lib/types/dashboard';
 import { getCategoryPath, isLeafCategory } from '@/lib/utils/dashboard';
+import { TagMultiSelect } from '@/components/transactions/TagMultiSelect';
 
 interface ManualEntryDialogProps {
   isOpen: boolean;
@@ -95,6 +96,14 @@ export const ManualEntryDialog: React.FC<ManualEntryDialogProps> = ({
                 <option key={origin} value={origin}>{origin}</option>
               ))}
             </select>
+          </div>
+
+          {/* New: Tags Section */}
+          <div className="pt-2">
+            <TagMultiSelect
+              selectedTagIds={formData.tagIds || []}
+              onChange={(tagIds) => onFormChange({ ...formData, tagIds })}
+            />
           </div>
 
           {/* Transaction Series Section */}
