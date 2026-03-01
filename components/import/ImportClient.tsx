@@ -333,9 +333,9 @@ export default function ImportClient() {
                 <div>
                   <Label>Pomiń wiersze</Label>
                   <div className="flex items-center gap-2 mt-1">
-                    <Button onClick={() => setSkipRows(s => Math.max(0, s - 1))}>-</Button>
-                    <Input type="number" value={skipRows} onChange={e => setSkipRows(parseInt(e.target.value, 10) || 0)} className="w-16 text-center bg-neutral-800 border-neutral-700" />
-                    <Button onClick={() => setSkipRows(s => s + 1)}>+</Button>
+                    <Button onClick={() => { setPresetColumnIndices(null); setSkipRows(s => Math.max(0, s - 1)); }}>-</Button>
+                    <Input type="number" value={skipRows} onChange={e => { setPresetColumnIndices(null); setSkipRows(parseInt(e.target.value, 10) || 0); }} className="w-16 text-center bg-neutral-800 border-neutral-700" />
+                    <Button onClick={() => { setPresetColumnIndices(null); setSkipRows(s => s + 1); }}>+</Button>
                   </div>
                 </div>
 
