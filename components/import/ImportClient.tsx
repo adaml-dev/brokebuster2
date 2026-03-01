@@ -72,9 +72,12 @@ export default function ImportClient() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [transformedData, setTransformedData] = useState<any[]>([]);
-  const [presetColumnIndices, setPresetColumnIndices] = useState<any>(null);
-
-  const [columnMapping, setColumnMapping] = useState({
+  const [columnMapping, setColumnMapping] = useState<{
+    date: number | '';
+    amount: number | '';
+    payee: number | '';
+    description: number | '';
+  }>({
     date: '',
     amount: '',
     payee: '',
@@ -112,8 +115,6 @@ export default function ImportClient() {
       setEncoding(saved.encoding || "UTF-8");
       setColumnMapping(saved.columnMapping || { date: '', amount: '', payee: '', description: '' });
       setDelimiter(saved.delimiter || ";");
-      // Bardzo ważne: czyścimy presetColumnIndices, aby automatyczny mapper nie nadpisał tych wartości
-      setPresetColumnIndices(null);
     }
   }, [selectedPreset, allSavedSettings]);
 
@@ -133,26 +134,20 @@ export default function ImportClient() {
       setEncoding(saved.encoding || "UTF-8");
       setColumnMapping(saved.columnMapping || { date: '', amount: '', payee: '', description: '' });
       setDelimiter(saved.delimiter || ";");
-      setPresetColumnIndices(null);
     } else {
       const preset = PRESETS[presetName];
       setSkipRows(preset.skipRows);
       setEncoding(preset.encoding);
       setDelimiter(preset.delimiter);
-      setPresetColumnIndices(preset.columns);
-    }
-  };
-
-  useEffect(() => {
-    if (headers.length > 0 && presetColumnIndices) {
+      // Ustawiamy mapowanie bezpośrednio przez indeksy kolumn
       setColumnMapping({
-        date: headers[presetColumnIndices.date] || '',
-        amount: headers[presetColumnIndices.amount] || '',
-        payee: headers[presetColumnIndices.payee] || '',
-        description: headers[presetColumnIndices.description] || '',
+        date: preset.columns.date,
+        amount: preset.columns.amount,
+        payee: preset.columns.payee,
+        description: preset.columns.description,
       });
     }
-  }, [headers, presetColumnIndices]);
+  };
 
   const parseFile = useCallback(() => {
     if (!file) return;
@@ -202,18 +197,18 @@ export default function ImportClient() {
   useEffect(() => {
     const transform = () => {
       const preset = PRESETS[selectedPreset as keyof typeof PRESETS];
+      const dateIndex = columnMapping.date === '' ? -1 : columnMapping.date;
+      const amountIndex = columnMapping.amount === '' ? -1 : columnMapping.amount;
+      const payeeIndex = columnMapping.payee === '' ? -1 : columnMapping.payee;
+      const descriptionIndex = columnMapping.description === '' ? -1 : columnMapping.description;
+
       const transactions = parsedData
         .map((row) => {
-          const dateIndex = headers.indexOf(columnMapping.date);
-          const amountIndex = headers.indexOf(columnMapping.amount);
-          const payeeIndex = headers.indexOf(columnMapping.payee);
-          const descriptionIndex = headers.indexOf(columnMapping.description);
-
-          const amountRaw = row[amountIndex];
+          const amountRaw = amountIndex >= 0 ? row[amountIndex] : undefined;
           if (!amountRaw) return null;
 
           const amount = parseFloat(amountRaw.replace(/,/, '.').replace(/\s/g, ''));
-          const date = normalizeDate(row[dateIndex]);
+          const date = normalizeDate(dateIndex >= 0 ? row[dateIndex] : '');
 
           if (!date || !amount) {
             return null;
@@ -222,8 +217,8 @@ export default function ImportClient() {
           return {
             date: date,
             amount: amount,
-            payee: row[payeeIndex] || '',
-            description: row[descriptionIndex] || '',
+            payee: payeeIndex >= 0 ? row[payeeIndex] || '' : '',
+            description: descriptionIndex >= 0 ? row[descriptionIndex] || '' : '',
             origin: preset?.name || 'import',
           };
         })
@@ -232,7 +227,7 @@ export default function ImportClient() {
     };
 
     transform();
-  }, [parsedData, columnMapping, headers, selectedPreset]);
+  }, [parsedData, columnMapping, selectedPreset]);
 
   const saveSettings = async () => {
     if (selectedPreset) {
@@ -333,9 +328,9 @@ export default function ImportClient() {
                 <div>
                   <Label>Pomiń wiersze</Label>
                   <div className="flex items-center gap-2 mt-1">
-                    <Button onClick={() => { setPresetColumnIndices(null); setSkipRows(s => Math.max(0, s - 1)); }}>-</Button>
-                    <Input type="number" value={skipRows} onChange={e => { setPresetColumnIndices(null); setSkipRows(parseInt(e.target.value, 10) || 0); }} className="w-16 text-center bg-neutral-800 border-neutral-700" />
-                    <Button onClick={() => { setPresetColumnIndices(null); setSkipRows(s => s + 1); }}>+</Button>
+                    <Button onClick={() => setSkipRows(s => Math.max(0, s - 1))}>-</Button>
+                    <Input type="number" value={skipRows} onChange={e => setSkipRows(parseInt(e.target.value, 10) || 0)} className="w-16 text-center bg-neutral-800 border-neutral-700" />
+                    <Button onClick={() => setSkipRows(s => s + 1)}>+</Button>
                   </div>
                 </div>
 
@@ -365,11 +360,11 @@ export default function ImportClient() {
                         <Label className="capitalize">{field}</Label>
                         <select
                           value={columnMapping[field as keyof typeof columnMapping]}
-                          onChange={(e) => setColumnMapping({ ...columnMapping, [field]: e.target.value })}
+                          onChange={(e) => setColumnMapping({ ...columnMapping, [field]: e.target.value === '' ? '' : parseInt(e.target.value) })}
                           className="w-full mt-1 p-2 bg-neutral-800 rounded border-neutral-700"
                         >
                           <option value="">Wybierz kolumnę</option>
-                          {headers.map((header, i) => <option key={`${header}-${i}`} value={header}>{header}</option>)}
+                          {headers.map((header, i) => <option key={i} value={i}>{header}</option>)}
                         </select>
                       </div>
                     ))}
