@@ -49,6 +49,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // payee is NOT NULL in the DB — ensure it always has a value
+    if (baseData.payee === undefined) {
+      baseData.payee = '';
+    }
+
     // Ustaw domyślne wartości jeśli nie podano
     if (!baseData.transaction_type) {
       baseData.transaction_type = 'planned';
