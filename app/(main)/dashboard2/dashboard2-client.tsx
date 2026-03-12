@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { Transaction, Account, Category, AccountStatement, PivotData, ColumnData, SortDirection, Tag } from "@/lib/types/dashboard";
 import { usePivotCalculations } from "@/lib/hooks/usePivotCalculations";
 import { useTransactionActions } from "@/lib/hooks/useTransactionActions";
 import { useTransactionForms } from "@/lib/hooks/useTransactionForms";
-import { formatCurrency, getMonthKey, getAllCategoryIds, getUniqueOrigins } from "@/lib/utils/dashboard";
+import { formatCurrency, getMonthKey, getAllCategoryIds, getUniqueOrigins, isLeafCategory } from "@/lib/utils/dashboard";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,39 @@ export default function Dashboard2Client({
     const [sortColumn, setSortColumn] = useState<string>("date");
     const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    // Restore state from localStorage after a page reload triggered by an action
+    useEffect(() => {
+        const saved = localStorage.getItem('dashboard2State');
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                if (state.selectedMonth) setSelectedMonth(state.selectedMonth);
+                if (state.selectedYear) setSelectedYear(state.selectedYear);
+                if (state.selectedCategory !== undefined) setSelectedCategory(state.selectedCategory);
+                if (state.expandedCategories) setExpandedCategories(new Set(state.expandedCategories as string[]));
+            } catch (e) {
+                // ignore malformed data
+            }
+            localStorage.removeItem('dashboard2State');
+        }
+    }, []);
+
+    // Save dashboard2 state to localStorage before page reload (triggered by actions)
+    const saveDashboard2State = useCallback(() => {
+        localStorage.setItem('dashboard2State', JSON.stringify({
+            selectedMonth,
+            selectedYear,
+            selectedCategory,
+            expandedCategories: Array.from(expandedCategories),
+        }));
+    }, [selectedMonth, selectedYear, selectedCategory, expandedCategories]);
+
+    // Hook into beforeunload so state is saved whenever location.reload() is called
+    useEffect(() => {
+        window.addEventListener('beforeunload', saveDashboard2State);
+        return () => window.removeEventListener('beforeunload', saveDashboard2State);
+    }, [saveDashboard2State]);
 
     const pivotData = usePivotCalculations({
         transactions,
@@ -447,7 +480,36 @@ export default function Dashboard2Client({
                                 <Button
                                     size="sm"
                                     className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white gap-1"
-                                    onClick={() => formActions.handleOpenManualEntryDialog()}
+                                    onClick={() => {
+                                        const [year, month] = selectedMonth.split('-');
+
+                                        // If selected category is a leaf → set it directly.
+                                        // If it's a parent → pre-fill categoryFilter with its name
+                                        // so the dropdown is filtered to its children.
+                                        let prefillCategory = '';
+                                        let prefillCategoryFilter = '';
+                                        if (selectedCategory) {
+                                            if (isLeafCategory(selectedCategory, categories)) {
+                                                prefillCategory = selectedCategory;
+                                            } else {
+                                                const cat = categories.find(c => c.id === selectedCategory);
+                                                prefillCategoryFilter = cat?.name || '';
+                                            }
+                                        }
+
+                                        formActions.setManualEntryFormData(prev => ({
+                                            ...prev,
+                                            date: `${year}-${month}-01`,
+                                            category: prefillCategory,
+                                            categoryFilter: prefillCategoryFilter,
+                                            amount: '',
+                                            payee: '',
+                                            description: '',
+                                            seriesRepetitions: 1,
+                                            seriesIntervalMonths: 1,
+                                        }));
+                                        formActions.setIsManualEntryDialogOpen(true);
+                                    }}
                                 >
                                     <Plus className="h-3 w-3" /> Dodaj
                                 </Button>
