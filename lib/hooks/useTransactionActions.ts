@@ -26,7 +26,7 @@ export const useTransactionActions = ({
   // Funkcja do zapisywania stanu przed reload
   const saveStateBeforeReload = useCallback(() => {
     const stateToSave = {
-      expandedCats: Array.from(expandedCats),
+      expandedCats: Array.from(expandedCats ?? []),
       monthOffset: monthOffset,
       categoryFilter: categoryFilter,
       clickedCell: dashboardState.clickedCell,
