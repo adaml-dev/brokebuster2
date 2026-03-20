@@ -330,7 +330,7 @@ export default function Dashboard2Client({
     return (
         <div className="flex flex-col lg:flex-row h-full w-full gap-4 p-4 overflow-auto lg:overflow-hidden">
             {/* LEFT PANEL - MONTHS (Mobile: full width, Desktop: 25%) */}
-            <Card className="w-full lg:w-1/4 flex flex-col min-h-[300px] lg:h-full">
+            <Card className="w-full lg:w-[18%] flex flex-col min-h-[300px] lg:h-full">
                 <CardHeader className="py-3">
                     <CardTitle className="flex flex-col gap-2">
                         <div className="flex justify-between items-center">
@@ -383,10 +383,9 @@ export default function Dashboard2Client({
                             <TableRow>
                                 <TableHead className="w-[32px] px-2"></TableHead>
                                 <TableHead className="w-[70px]">Miesiąc</TableHead>
-                                <TableHead className="text-right">Suma</TableHead>
+                                <TableHead className="text-right">Bilans</TableHead>
                                 <TableHead className="text-right">Narast.</TableHead>
                                 <TableHead className="text-right px-2">Kat.</TableHead>
-                                <TableHead className="text-right px-2">Konto</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -427,16 +426,6 @@ export default function Dashboard2Client({
                                         </TableCell>
                                         <TableCell className="text-right font-mono whitespace-nowrap py-2 px-2 text-muted-foreground">
                                             {selectedCategory ? formatCurrency(pivotData.totalValuesMap[selectedCategory]?.[col.key] || 0) : "-"}
-                                        </TableCell>
-                                        <TableCell
-                                            className="text-right font-mono hover:bg-primary/10 cursor-alias whitespace-nowrap py-2 px-2"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedMonth(col.key);
-                                                setMiddlePanelMode('accounts');
-                                            }}
-                                        >
-                                            {balance !== null ? formatCurrency(balance) : "-"}
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -531,7 +520,7 @@ export default function Dashboard2Client({
             </Card>
 
             {/* RIGHT PANEL - TRANSACTIONS (Mobile: full width, Desktop: 50%) */}
-            <Card className="w-full lg:w-1/2 flex flex-col min-h-[500px] lg:h-full">
+            <Card className="w-full lg:w-[57%] flex flex-col min-h-[500px] lg:h-full">
                 <CardHeader className="py-3">
                     <CardTitle className="flex flex-col gap-3">
                         {/* Header Top Row */}
@@ -686,11 +675,15 @@ export default function Dashboard2Client({
                                 <TableHead className="text-right cursor-pointer hover:bg-muted w-[100px]" onClick={() => handleSort('amount')}>
                                     <div className="flex items-center justify-end gap-1">Kwota <ArrowUpDown className="h-3 w-3" /></div>
                                 </TableHead>
+                                <TableHead className="text-right w-[100px] text-muted-foreground">Narastająco</TableHead>
                                 <TableHead className="w-[80px]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTransactions.map(t => {
+                            {filteredTransactions.map((t, idx) => {
+                                const cumulativeAmount = filteredTransactions
+                                    .slice(0, idx + 1)
+                                    .reduce((sum, tx) => sum + tx.amount, 0);
                                 const isDone = t.transaction_type === 'done';
                                 const TypeIcon = isDone ? CheckCircle2 : CircleDashed;
 
@@ -730,6 +723,12 @@ export default function Dashboard2Client({
                                         )}>
                                             {formatCurrency(t.amount)}
                                         </TableCell>
+                                        <TableCell className={cn(
+                                            "text-right font-mono whitespace-nowrap py-2 text-muted-foreground",
+                                            cumulativeAmount > 0 ? "text-green-500/70" : "text-red-500/70"
+                                        )}>
+                                            {formatCurrency(cumulativeAmount)}
+                                        </TableCell>
                                         <TableCell className="py-2 px-2 text-right">
                                             <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => formActions.handleOpenEditDialog(new Set([t.id]))}>
@@ -750,7 +749,7 @@ export default function Dashboard2Client({
                             })}
                             {filteredTransactions.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                                         Brak transakcji
                                     </TableCell>
                                 </TableRow>
