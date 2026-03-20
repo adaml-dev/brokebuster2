@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown,
@@ -41,6 +42,7 @@ export default function Dashboard2Client({
 }: Dashboard2ClientProps) {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(getMonthKey(new Date()));
+    const [checkedMonths, setCheckedMonths] = useState<Set<string>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [middlePanelMode, setMiddlePanelMode] = useState<'categories' | 'accounts'>('categories');
 
@@ -130,6 +132,35 @@ export default function Dashboard2Client({
     // Helper to get month label
     const selectedMonthLabel = pivotData.columns.find((c: ColumnData) => c.key === selectedMonth)?.label || selectedMonth;
 
+    // Effective months: if checkboxes are used, use them; otherwise just the active month
+    const effectiveMonths = useMemo(
+        () => checkedMonths.size > 0 ? checkedMonths : new Set([selectedMonth]),
+        [checkedMonths, selectedMonth]
+    );
+
+    // Middle panel label
+    const middlePanelMonthLabel = useMemo(() => {
+        if (checkedMonths.size === 0) return selectedMonthLabel;
+        if (checkedMonths.size === 1) {
+            const key = Array.from(checkedMonths)[0];
+            return pivotData.columns.find((c: ColumnData) => c.key === key)?.label || key;
+        }
+        return `${checkedMonths.size} miesięcy`;
+    }, [checkedMonths, selectedMonthLabel, pivotData.columns]);
+
+    // Merged category totals for checked months (mixed mode: done for past, planned for current/future)
+    const mergedCategoryTotals = useMemo(() => {
+        const result: Record<string, number> = {};
+        for (const [catId, monthMap] of Object.entries(pivotData.totalValuesMap)) {
+            let sum = 0;
+            for (const mk of effectiveMonths) {
+                sum += (monthMap[mk] || 0);
+            }
+            result[catId] = sum;
+        }
+        return result;
+    }, [pivotData.totalValuesMap, effectiveMonths]);
+
     // Derived state
     const uniqueOrigins = useMemo(() => getUniqueOrigins(transactions), [transactions]);
 
@@ -138,7 +169,7 @@ export default function Dashboard2Client({
         let result = transactions.filter(t => {
             // 1. Month Filter
             const tMonthKey = getMonthKey(new Date(t.date));
-            if (tMonthKey !== selectedMonth) return false;
+            if (!effectiveMonths.has(tMonthKey)) return false;
 
             // 2. Uncategorized Toggle vs Category Selection
             if (showUncategorized) {
@@ -198,7 +229,7 @@ export default function Dashboard2Client({
         });
 
         return result;
-    }, [transactions, selectedMonth, selectedCategory, rightPanelFilter, sortColumn, sortDirection, categories, showUncategorized, transactionStatusFilter]);
+    }, [transactions, effectiveMonths, selectedCategory, rightPanelFilter, sortColumn, sortDirection, categories, showUncategorized, transactionStatusFilter]);
 
     const handleSort = (column: string) => {
         if (sortColumn === column) {
@@ -324,13 +355,34 @@ export default function Dashboard2Client({
                                 <ChevronsRight className="h-4 w-4" />
                             </Button>
                         </div>
+
+                        {/* Select All / Deselect All */}
+                        <div className="flex gap-1">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs flex-1"
+                                onClick={() => setCheckedMonths(new Set(pivotData.columns.map((c: ColumnData) => c.key)))}
+                            >
+                                Zaznacz wszystkie
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs flex-1"
+                                onClick={() => setCheckedMonths(new Set())}
+                            >
+                                Odznacz wszystkie
+                            </Button>
+                        </div>
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-auto p-0 max-h-[400px] lg:max-h-full">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[80px]">Miesiąc</TableHead>
+                                <TableHead className="w-[32px] px-2"></TableHead>
+                                <TableHead className="w-[70px]">Miesiąc</TableHead>
                                 <TableHead className="text-right">Suma</TableHead>
                                 <TableHead className="text-right">Narast.</TableHead>
                                 <TableHead className="text-right px-2">Kat.</TableHead>
@@ -340,16 +392,32 @@ export default function Dashboard2Client({
                         <TableBody>
                             {pivotData.columns.map((col: ColumnData) => {
                                 const isSelected = col.key === selectedMonth;
+                                const isChecked = checkedMonths.has(col.key);
+                                const isHighlighted = isSelected || isChecked;
                                 const balance = pivotData.accountBalances[col.key];
                                 return (
                                     <TableRow
                                         key={col.key}
-                                        className={cn("cursor-pointer hover:bg-muted/50", isSelected && "bg-muted")}
+                                        className={cn("cursor-pointer hover:bg-muted/50", isHighlighted && "bg-muted")}
                                         onClick={() => {
                                             setSelectedMonth(col.key);
                                             setMiddlePanelMode('categories');
                                         }}
                                     >
+                                        <TableCell className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                                            <Checkbox
+                                                checked={isChecked}
+                                                onCheckedChange={(checked) => {
+                                                    setCheckedMonths(prev => {
+                                                        const next = new Set(prev);
+                                                        if (checked) next.add(col.key);
+                                                        else next.delete(col.key);
+                                                        return next;
+                                                    });
+                                                }}
+                                                className="h-3.5 w-3.5"
+                                            />
+                                        </TableCell>
                                         <TableCell className="font-medium whitespace-nowrap py-2">{col.label}</TableCell>
                                         <TableCell className="text-right font-mono whitespace-nowrap py-2">
                                             {formatCurrency(pivotData.monthlyTotals[col.key] || 0)}
@@ -385,7 +453,7 @@ export default function Dashboard2Client({
                         <div className="flex justify-between items-center">
                             <span>{middlePanelMode === 'categories' ? 'Kategorie' : 'Konta'}</span>
                             <span className="text-muted-foreground text-sm font-normal">
-                                {selectedMonthLabel}
+                                {middlePanelMonthLabel}
                             </span>
                         </div>
                         <div className="flex gap-2">
@@ -450,8 +518,7 @@ export default function Dashboard2Client({
                         <div className="p-2">
                             <CategoryTreeList
                                 categories={pivotData.categoryTree}
-                                selectedMonth={selectedMonth}
-                                totals={pivotData.totalValuesMap}
+                                mergedTotals={mergedCategoryTotals}
                                 selectedCategoryId={selectedCategory}
                                 onSelectCategory={setSelectedCategory}
                                 filterText={middlePanelFilter}
@@ -720,8 +787,7 @@ export default function Dashboard2Client({
 
 function CategoryTreeList({
     categories,
-    selectedMonth,
-    totals,
+    mergedTotals,
     selectedCategoryId,
     onSelectCategory,
     level = 0,
@@ -730,8 +796,7 @@ function CategoryTreeList({
     onToggleCategory
 }: {
     categories: Category[],
-    selectedMonth: string,
-    totals: Record<string, Record<string, number>>,
+    mergedTotals: Record<string, number>,
     selectedCategoryId: string | null,
     onSelectCategory: (id: string) => void,
     level?: number,
@@ -756,7 +821,7 @@ function CategoryTreeList({
             {categories.map(cat => {
                 if (!shouldShowNode(cat, filterText)) return null;
 
-                const amount = totals[cat.id]?.[selectedMonth] || 0;
+                const amount = mergedTotals[cat.id] || 0;
                 const isSelected = selectedCategoryId === cat.id;
 
                 const hasChildren = cat.children && cat.children.length > 0;
@@ -806,8 +871,7 @@ function CategoryTreeList({
                         {hasChildren && isExpanded && (
                             <CategoryTreeList
                                 categories={cat.children || []}
-                                selectedMonth={selectedMonth}
-                                totals={totals}
+                                mergedTotals={mergedTotals}
                                 level={level + 1}
                                 selectedCategoryId={selectedCategoryId}
                                 onSelectCategory={onSelectCategory}
