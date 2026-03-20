@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TagMultiSelect } from '@/components/transactions/TagMultiSelect';
+import { Category } from '@/lib/types/dashboard';
+import { getCategoryPath, isLeafCategory } from '@/lib/utils/dashboard';
 
 interface EditTransactionDialogProps {
   isOpen: boolean;
@@ -13,11 +15,19 @@ interface EditTransactionDialogProps {
   onFormChange: (formData: any) => void;
   onSave: () => void;
   onCancel: () => void;
+  categories: Category[];
 }
 
 export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
-  isOpen, onOpenChange, formData, onFormChange, onSave, onCancel
+  isOpen, onOpenChange, formData, onFormChange, onSave, onCancel, categories = []
 }) => {
+  const [categoryFilter, setCategoryFilter] = useState('');
+
+  const leafCategories = categories.filter(cat => isLeafCategory(cat.id, categories));
+  const filteredCategories = leafCategories.filter(cat =>
+    getCategoryPath(cat.id, categories).join(' ').toLowerCase().includes(categoryFilter.toLowerCase())
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl bg-neutral-900 border-neutral-700">
@@ -114,6 +124,45 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
               onChange={(e) => onFormChange({ ...formData, source: e.target.value })}
               className="col-span-3 bg-neutral-800 border-neutral-700 text-white"
             />
+          </div>
+
+          {/* Category */}
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="edit-category" className="text-right text-neutral-300 pt-2">
+              Kategoria
+            </Label>
+            <div className="col-span-3 flex flex-col gap-1">
+              <Input
+                placeholder="Filtruj kategorie..."
+                value={categoryFilter}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCategoryFilter(val);
+                  // auto-select first match when filter changes
+                  const filtered = leafCategories.filter(cat =>
+                    getCategoryPath(cat.id, categories).join(' ').toLowerCase().includes(val.toLowerCase())
+                  );
+                  if (filtered.length > 0) {
+                    onFormChange({ ...formData, category: filtered[0].id });
+                  }
+                }}
+                className="bg-neutral-800 border-neutral-700 text-white placeholder:text-neutral-500"
+              />
+              <select
+                id="edit-category"
+                value={formData.category}
+                onChange={(e) => onFormChange({ ...formData, category: e.target.value })}
+                className="w-full h-10 px-3 rounded-md bg-neutral-800 border border-neutral-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                size={Math.min(filteredCategories.length + 1, 6)}
+              >
+                <option value="">Brak kategorii</option>
+                {filteredCategories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {getCategoryPath(cat.id, categories).join(' → ')}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Tags */}

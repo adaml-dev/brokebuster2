@@ -68,6 +68,9 @@ export default function Dashboard2Client({
                 if (state.selectedYear) setSelectedYear(state.selectedYear);
                 if (state.selectedCategory !== undefined) setSelectedCategory(state.selectedCategory);
                 if (state.expandedCategories) setExpandedCategories(new Set(state.expandedCategories as string[]));
+                if (state.checkedMonths) setCheckedMonths(new Set(state.checkedMonths as string[]));
+                if (state.showUncategorized !== undefined) setShowUncategorized(state.showUncategorized);
+                if (state.transactionStatusFilter) setTransactionStatusFilter(state.transactionStatusFilter);
             } catch (e) {
                 // ignore malformed data
             }
@@ -82,8 +85,11 @@ export default function Dashboard2Client({
             selectedYear,
             selectedCategory,
             expandedCategories: Array.from(expandedCategories),
+            checkedMonths: Array.from(checkedMonths),
+            showUncategorized,
+            transactionStatusFilter,
         }));
-    }, [selectedMonth, selectedYear, selectedCategory, expandedCategories]);
+    }, [selectedMonth, selectedYear, selectedCategory, expandedCategories, checkedMonths, showUncategorized, transactionStatusFilter]);
 
     // Hook into beforeunload so state is saved whenever location.reload() is called
     useEffect(() => {
@@ -769,6 +775,7 @@ export default function Dashboard2Client({
                     formActions.setIsEditDialogOpen(false);
                     formActions.setEditingTransaction(null);
                 }}
+                categories={categories}
             />
 
             <ManualEntryDialog
