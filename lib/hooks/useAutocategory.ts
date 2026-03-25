@@ -119,7 +119,9 @@ export const useAutocategory = (transactions: Transaction[], categories: Categor
 
     const updateProposedCategory = (transactionId: string, categoryId: string) => {
         setProposals(prev => prev.map(p =>
-            p.transactionId === transactionId ? { ...p, proposedCategoryId: categoryId } : p
+            p.transactionId === transactionId
+                ? { ...p, proposedCategoryId: categoryId, accepted: categoryId ? true : p.accepted }
+                : p
         ));
     };
 

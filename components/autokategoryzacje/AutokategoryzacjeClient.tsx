@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Wand2, Loader2, Check, ExternalLink, Save, BookOpen } from "lucide-react";
+import { Wand2, Loader2, Check, ExternalLink, Save, BookOpen, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import { useAutocategory } from "@/lib/hooks/useAutocategory";
 import { Category, Transaction, Rule } from "@/lib/types/dashboard";
 import { formatCurrency, formatDate, isLeafCategory } from "@/lib/utils/dashboard";
 import RulesManagement from "./RulesManagement";
+import CreateRuleModal from "./CreateRuleModal";
 import { Badge } from "@/components/ui/badge";
 
 export default function AutokategoryzacjeClient({
@@ -33,6 +34,10 @@ export default function AutokategoryzacjeClient({
     const [isLoading, setIsLoading] = useState(false);
     const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
     const [rules, setRules] = useState<Rule[]>(initialRules);
+
+    // Modal state for creating rules from a transaction row
+    const [ruleModalTransaction, setRuleModalTransaction] = useState<Transaction | null>(null);
+    const [ruleModalCategoryId, setRuleModalCategoryId] = useState<string>("");
 
     const {
         proposals,
@@ -217,21 +222,34 @@ export default function AutokategoryzacjeClient({
                                                         {formatCurrency(proposal.transaction.amount)} zł
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Select
-                                                            value={proposal.proposedCategoryId}
-                                                            onValueChange={(val) => updateProposedCategory(proposal.transactionId, val)}
-                                                        >
-                                                            <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
-                                                                <SelectValue placeholder="Wybierz kategorię" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                                                {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
-                                                                    <SelectItem key={cat.id} value={cat.id}>
-                                                                        {cat.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <div className="flex items-center gap-1">
+                                                            <Select
+                                                                value={proposal.proposedCategoryId}
+                                                                onValueChange={(val) => updateProposedCategory(proposal.transactionId, val)}
+                                                            >
+                                                                <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white flex-1">
+                                                                    <SelectValue placeholder="Wybierz kategorię" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                                                                    {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
+                                                                        <SelectItem key={cat.id} value={cat.id}>
+                                                                            {cat.name}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <button
+                                                                type="button"
+                                                                title="Utwórz regułę kategoryzacji"
+                                                                onClick={() => {
+                                                                    setRuleModalTransaction(proposal.transaction);
+                                                                    setRuleModalCategoryId(proposal.proposedCategoryId);
+                                                                }}
+                                                                className="ml-1 flex-shrink-0 p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-yellow-400 transition-colors"
+                                                            >
+                                                                <Settings2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
@@ -264,6 +282,20 @@ export default function AutokategoryzacjeClient({
                         />
                     </TabsContent>
                 </Tabs>
+
+                {/* Rule creation modal */}
+                {ruleModalTransaction && (
+                    <CreateRuleModal
+                        open={!!ruleModalTransaction}
+                        onOpenChange={(open) => { if (!open) setRuleModalTransaction(null); }}
+                        transaction={ruleModalTransaction}
+                        categories={categories}
+                        initialCategoryId={ruleModalCategoryId}
+                        onRuleCreated={() => {
+                            handleRefreshRules();
+                        }}
+                    />
+                )}
             </div>
         </div >
     );
