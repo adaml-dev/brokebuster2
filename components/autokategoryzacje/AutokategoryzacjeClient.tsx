@@ -171,93 +171,129 @@ export default function AutokategoryzacjeClient({
                             </CardContent>
                         </Card>
 
-                        {proposals.length > 0 ? (
-                            <Card className="bg-neutral-900 border-neutral-800 overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader className="bg-neutral-800/50">
-                                            <TableRow className="border-neutral-800">
-                                                <TableHead className="w-[50px]"></TableHead>
-                                                <TableHead className="text-neutral-400">Metoda</TableHead>
-                                                <TableHead className="text-neutral-400">Data</TableHead>
-                                                <TableHead className="text-neutral-400">Opis / Payee</TableHead>
-                                                <TableHead className="text-right text-neutral-400">Kwota</TableHead>
-                                                <TableHead className="text-neutral-400">Proponowana kategoria</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {proposals.map((proposal) => (
-                                                <TableRow key={proposal.transactionId} className="border-neutral-800 hover:bg-neutral-800/30">
-                                                    <TableCell>
-                                                        <Checkbox
-                                                            checked={proposal.accepted}
-                                                            disabled={!proposal.proposedCategoryId} // Prevent selecting if no category to apply
-                                                            onCheckedChange={() => toggleAcceptance(proposal.transactionId)}
-                                                            className="border-neutral-600 data-[state=checked]:bg-yellow-500 data-[state=checked]:text-black disabled:opacity-30 disabled:cursor-not-allowed"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="outline" className={
-                                                            proposal.method === 'rule' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                                                'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' // manual
-                                                        }>
-                                                            {proposal.method === 'rule' ? 'Reguła' : 'Do decyzji'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-neutral-300 whitespace-nowrap">
-                                                        {formatDate(proposal.transaction.date)}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex flex-col">
-                                                            <span className="text-white font-medium">{proposal.transaction.payee || "Brak odbiorcy"}</span>
-                                                            <span className="text-neutral-500 text-xs italic">{proposal.transaction.description}</span>
-                                                            {(proposal.transaction.category && proposal.transaction.category !== 'null') && (
-                                                                <span className="text-xs text-yellow-500/70 block mt-1">
-                                                                    Obecna kat: {proposal.transaction.category}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className={`text-right font-medium ${proposal.transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                                                        {formatCurrency(proposal.transaction.amount)} zł
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-1">
-                                                            <Select
-                                                                value={proposal.proposedCategoryId}
-                                                                onValueChange={(val) => updateProposedCategory(proposal.transactionId, val)}
-                                                            >
-                                                                <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white flex-1">
-                                                                    <SelectValue placeholder="Wybierz kategorię" />
-                                                                </SelectTrigger>
-                                                                <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                                                    {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
-                                                                        <SelectItem key={cat.id} value={cat.id}>
-                                                                            {cat.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
-                                                            <button
-                                                                type="button"
-                                                                title="Utwórz regułę kategoryzacji"
-                                                                onClick={() => {
-                                                                    setRuleModalTransaction(proposal.transaction);
-                                                                    setRuleModalCategoryId(proposal.proposedCategoryId);
-                                                                }}
-                                                                className="ml-1 flex-shrink-0 p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-yellow-400 transition-colors"
-                                                            >
-                                                                <Settings2 className="h-4 w-4" />
-                                                            </button>
-                                                        </div>
-                                                    </TableCell>
+                        {proposals.length > 0 ? (() => {
+                            const matched = proposals.filter(p => p.method === 'rule');
+                            const unmatched = proposals.filter(p => p.method === 'manual');
+
+                            const renderTable = (list: typeof proposals) => (
+                                <Card className="bg-neutral-900 border-neutral-800 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-neutral-800/50">
+                                                <TableRow className="border-neutral-800">
+                                                    <TableHead className="w-[50px]"></TableHead>
+                                                    <TableHead className="text-neutral-400">Metoda</TableHead>
+                                                    <TableHead className="text-neutral-400">Data</TableHead>
+                                                    <TableHead className="text-neutral-400">Opis / Payee</TableHead>
+                                                    <TableHead className="text-right text-neutral-400">Kwota</TableHead>
+                                                    <TableHead className="text-neutral-400">Proponowana kategoria</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </Card>
-                        ) : !isAnalyzing && (
+                                            </TableHeader>
+                                            <TableBody>
+                                                {list.map((proposal) => (
+                                                    <TableRow key={proposal.transactionId} className="border-neutral-800 hover:bg-neutral-800/30">
+                                                        <TableCell>
+                                                            <Checkbox
+                                                                checked={proposal.accepted}
+                                                                disabled={!proposal.proposedCategoryId}
+                                                                onCheckedChange={() => toggleAcceptance(proposal.transactionId)}
+                                                                className="border-neutral-600 data-[state=checked]:bg-yellow-500 data-[state=checked]:text-black disabled:opacity-30 disabled:cursor-not-allowed"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className={
+                                                                proposal.method === 'rule' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                                    'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+                                                            }>
+                                                                {proposal.method === 'rule' ? 'Reguła' : 'Do decyzji'}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-neutral-300 whitespace-nowrap">
+                                                            {formatDate(proposal.transaction.date)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-white font-medium">{proposal.transaction.payee || "Brak odbiorcy"}</span>
+                                                                <span className="text-neutral-500 text-xs italic">{proposal.transaction.description}</span>
+                                                                {(proposal.transaction.category && proposal.transaction.category !== 'null') && (
+                                                                    <span className="text-xs text-yellow-500/70 block mt-1">
+                                                                        Obecna kat: {proposal.transaction.category}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className={`text-right font-medium ${proposal.transaction.amount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                                            {formatCurrency(proposal.transaction.amount)} zł
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-1">
+                                                                <Select
+                                                                    value={proposal.proposedCategoryId}
+                                                                    onValueChange={(val) => updateProposedCategory(proposal.transactionId, val)}
+                                                                >
+                                                                    <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white flex-1">
+                                                                        <SelectValue placeholder="Wybierz kategorię" />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
+                                                                        {categories.filter(c => isLeafCategory(c.id, categories)).map((cat) => (
+                                                                            <SelectItem key={cat.id} value={cat.id}>
+                                                                                {cat.name}
+                                                                            </SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <button
+                                                                    type="button"
+                                                                    title="Utwórz regułę kategoryzacji"
+                                                                    onClick={() => {
+                                                                        setRuleModalTransaction(proposal.transaction);
+                                                                        setRuleModalCategoryId(proposal.proposedCategoryId);
+                                                                    }}
+                                                                    className="ml-1 flex-shrink-0 p-1.5 rounded hover:bg-neutral-700 text-neutral-400 hover:text-yellow-400 transition-colors"
+                                                                >
+                                                                    <Settings2 className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </Card>
+                            );
+
+                            return (
+                                <Tabs defaultValue="matched" className="space-y-4">
+                                    <TabsList className="bg-neutral-900 border border-neutral-800">
+                                        <TabsTrigger value="matched" className="data-[state=active]:bg-neutral-800">
+                                            <Check className="mr-2 h-4 w-4 text-blue-400" />
+                                            Dopasowane
+                                            <span className="ml-2 rounded-full bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5">{matched.length}</span>
+                                        </TabsTrigger>
+                                        <TabsTrigger value="unmatched" className="data-[state=active]:bg-neutral-800">
+                                            <ExternalLink className="mr-2 h-4 w-4 text-yellow-500" />
+                                            Pozostałe
+                                            <span className="ml-2 rounded-full bg-yellow-500/20 text-yellow-500 text-xs px-2 py-0.5">{unmatched.length}</span>
+                                        </TabsTrigger>
+                                    </TabsList>
+                                    <TabsContent value="matched">
+                                        {matched.length > 0 ? renderTable(matched) : (
+                                            <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
+                                                <p>Brak transakcji z dopasowaną kategorią.</p>
+                                            </div>
+                                        )}
+                                    </TabsContent>
+                                    <TabsContent value="unmatched">
+                                        {unmatched.length > 0 ? renderTable(unmatched) : (
+                                            <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
+                                                <p>Wszystkie transakcje zostały dopasowane.</p>
+                                            </div>
+                                        )}
+                                    </TabsContent>
+                                </Tabs>
+                            );
+                        })() : !isAnalyzing && (
                             <div className="flex flex-col items-center justify-center py-12 text-neutral-500">
                                 {uncategorizedCount > 0 ? (
                                     <>
