@@ -270,7 +270,7 @@ export default function ReconciliationClient() {
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 h-full p-4">
+        <div className="flex flex-col lg:flex-row gap-6 p-4">
             {/* Left Panel: Accounts */}
             <div className="w-full lg:w-1/2 flex flex-col gap-4">
                 <Card className="bg-neutral-900 border-neutral-800 flex-1">

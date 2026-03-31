@@ -11,7 +11,7 @@ export default function StanyKontPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
         <ReconciliationClient />
       </div>
     </div>
