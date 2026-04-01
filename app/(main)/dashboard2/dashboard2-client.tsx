@@ -45,6 +45,7 @@ export default function Dashboard2Client({
     const [checkedMonths, setCheckedMonths] = useState<Set<string>>(new Set());
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [middlePanelMode, setMiddlePanelMode] = useState<'categories' | 'accounts'>('categories');
+    const [twoColumnMode, setTwoColumnMode] = useState(false);
 
     // UI state for Category Tree
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
@@ -157,15 +158,84 @@ export default function Dashboard2Client({
     // Merged category totals for checked months (mixed mode: done for past, planned for current/future)
     const mergedCategoryTotals = useMemo(() => {
         const result: Record<string, number> = {};
-        for (const [catId, monthMap] of Object.entries(pivotData.totalValuesMap)) {
+        Object.entries(pivotData.totalValuesMap).forEach(([catId, monthMap]) => {
             let sum = 0;
-            for (const mk of effectiveMonths) {
+            Array.from(effectiveMonths).forEach(mk => {
                 sum += (monthMap[mk] || 0);
-            }
+            });
             result[catId] = sum;
-        }
+        });
         return result;
     }, [pivotData.totalValuesMap, effectiveMonths]);
+
+    // Two-column mode: separate Planned and Done totals per category
+    const { mergedPlannedTotals, mergedDoneTotals } = useMemo(() => {
+        const currentMonthKey = pivotData.currentMonthKey;
+        const isSingleMonth = effectiveMonths.size === 1;
+
+        // Build category accumulation maps directly from transactions
+        // catId -> { planned: number, done: number }
+        const accum: Record<string, { planned: number; done: number }> = {};
+
+        const addToAccum = (catId: string, type: 'planned' | 'done', amount: number) => {
+            if (!accum[catId]) accum[catId] = { planned: 0, done: 0 };
+            accum[catId][type] += amount;
+        };
+
+        // Recursively propagate from leaf to root
+        const propagate = (catId: string) => {
+            const cat = categories.find(c => c.id === catId);
+            if (!cat) return;
+            const children = categories.filter(c => c.parent === catId);
+            children.forEach(child => {
+                propagate(child.id);
+                if (accum[child.id]) {
+                    if (!accum[catId]) accum[catId] = { planned: 0, done: 0 };
+                    accum[catId].planned += accum[child.id].planned;
+                    accum[catId].done += accum[child.id].done;
+                }
+            });
+        };
+
+        transactions.forEach(t => {
+            if (!t.category) return;
+            const tMonthKey = getMonthKey(new Date(t.date));
+            if (!effectiveMonths.has(tMonthKey)) return;
+
+            const isDone = t.transaction_type === 'done' || t.source === 'import' || t.is_archived === true;
+            const isPlanned = t.transaction_type === 'planned';
+
+            let type: 'planned' | 'done' | null = null;
+            if (isSingleMonth) {
+                // Single month: split by transaction_type directly
+                if (isPlanned) type = 'planned';
+                else if (isDone) type = 'done';
+            } else {
+                // Multiple months: mixed logic
+                if (tMonthKey < currentMonthKey) {
+                    if (isDone) type = 'done';
+                } else {
+                    if (isPlanned) type = 'planned';
+                }
+            }
+
+            if (type) {
+                addToAccum(t.category, type, Number(t.amount));
+            }
+        });
+
+        // Propagate children sums up to parents
+        const rootCats = categories.filter(c => !c.parent);
+        rootCats.forEach(c => propagate(c.id));
+
+        const planned: Record<string, number> = {};
+        const done: Record<string, number> = {};
+        for (const [catId, vals] of Object.entries(accum)) {
+            planned[catId] = vals.planned;
+            done[catId] = vals.done;
+        }
+        return { mergedPlannedTotals: planned, mergedDoneTotals: done };
+    }, [transactions, categories, effectiveMonths, pivotData.currentMonthKey]);
 
     // Derived state
     const uniqueOrigins = useMemo(() => getUniqueOrigins(transactions), [transactions]);
@@ -451,6 +521,19 @@ export default function Dashboard2Client({
                                 {middlePanelMonthLabel}
                             </span>
                         </div>
+                        {middlePanelMode === 'categories' && (
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    id="two-column-mode-switch"
+                                    checked={twoColumnMode}
+                                    onCheckedChange={setTwoColumnMode}
+                                    className="scale-75 origin-left"
+                                />
+                                <Label htmlFor="two-column-mode-switch" className="text-xs cursor-pointer font-normal text-muted-foreground">
+                                    Dwie kolumny
+                                </Label>
+                            </div>
+                        )}
                         <div className="flex gap-2">
                             <Input
                                 placeholder="Filtruj..."
@@ -519,6 +602,9 @@ export default function Dashboard2Client({
                                 filterText={middlePanelFilter}
                                 expandedCategories={expandedCategories}
                                 onToggleCategory={toggleCategory}
+                                twoColumnMode={twoColumnMode}
+                                plannedTotals={mergedPlannedTotals}
+                                doneTotals={mergedDoneTotals}
                             />
                         </div>
                     )}
@@ -799,7 +885,10 @@ function CategoryTreeList({
     level = 0,
     filterText = "",
     expandedCategories,
-    onToggleCategory
+    onToggleCategory,
+    twoColumnMode = false,
+    plannedTotals = {},
+    doneTotals = {},
 }: {
     categories: Category[],
     mergedTotals: Record<string, number>,
@@ -808,7 +897,10 @@ function CategoryTreeList({
     level?: number,
     filterText?: string,
     expandedCategories: Set<string>,
-    onToggleCategory: (id: string) => void
+    onToggleCategory: (id: string) => void,
+    twoColumnMode?: boolean,
+    plannedTotals?: Record<string, number>,
+    doneTotals?: Record<string, number>,
 }) {
     // If filter is active, we should always expand irrelevant of state, 
     // or just show the flat list of matches?
@@ -835,6 +927,9 @@ function CategoryTreeList({
                 const isExpanded = filterText ? true : expandedCategories.has(cat.id);
 
                 const paddingLeft = level * 12 + 8;
+
+                const planned = plannedTotals[cat.id] || 0;
+                const done = doneTotals[cat.id] || 0;
 
                 return (
                     <React.Fragment key={cat.id}>
@@ -866,12 +961,29 @@ function CategoryTreeList({
 
                             <span className="truncate flex-1 mr-2 select-none text-foreground">{cat.name}</span>
 
-                            <span className={cn(
-                                "font-mono whitespace-nowrap text-xs",
-                                amount > 0 ? "text-green-600" : amount < 0 ? "text-red-500" : "text-muted-foreground"
-                            )}>
-                                {formatCurrency(amount)}
-                            </span>
+                            {twoColumnMode ? (
+                                <>
+                                    <span className={cn(
+                                        "font-mono whitespace-nowrap text-xs w-[58px] text-right",
+                                        planned > 0 ? "text-green-600" : planned < 0 ? "text-red-500" : "text-muted-foreground/40"
+                                    )} title="Planowane">
+                                        {formatCurrency(planned)}
+                                    </span>
+                                    <span className={cn(
+                                        "font-mono whitespace-nowrap text-xs w-[58px] text-right",
+                                        done > 0 ? "text-green-600" : done < 0 ? "text-red-500" : "text-muted-foreground/40"
+                                    )} title="Zrealizowane">
+                                        {formatCurrency(done)}
+                                    </span>
+                                </>
+                            ) : (
+                                <span className={cn(
+                                    "font-mono whitespace-nowrap text-xs",
+                                    amount > 0 ? "text-green-600" : amount < 0 ? "text-red-500" : "text-muted-foreground"
+                                )}>
+                                    {formatCurrency(amount)}
+                                </span>
+                            )}
                         </div>
 
                         {hasChildren && isExpanded && (
@@ -884,6 +996,9 @@ function CategoryTreeList({
                                 filterText={filterText}
                                 expandedCategories={expandedCategories}
                                 onToggleCategory={onToggleCategory}
+                                twoColumnMode={twoColumnMode}
+                                plannedTotals={plannedTotals}
+                                doneTotals={doneTotals}
                             />
                         )}
                     </React.Fragment>
