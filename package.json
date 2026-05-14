@@ -29,6 +29,7 @@
     "papaparse": "^5.5.3",
     "react": "^18",
     "react-dom": "^18",
+    "recharts": "^3.8.1",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
     "xlsx": "^0.18.5"
