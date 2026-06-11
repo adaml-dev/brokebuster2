@@ -242,6 +242,7 @@ export default function DashboardClient({
         formData={formActions.editFormData}
         onFormChange={formActions.setEditFormData}
         onSave={formActions.handleSaveEdit}
+        categories={categories}
         onCancel={() => {
           formActions.setIsEditDialogOpen(false);
           formActions.setEditingTransaction(null);

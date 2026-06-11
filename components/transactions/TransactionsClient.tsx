@@ -20,10 +20,11 @@ import EditTransactionDialog from "./EditTransactionDialog";
 import BulkEditDialog from "./BulkEditDialog";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-import { isLeafCategory } from "@/lib/utils/dashboard";
+import { isLeafCategory, getAllCategoryIds } from "@/lib/utils/dashboard";
 import { Category, Tag, Transaction } from "@/lib/types/dashboard";
 import { TagBadge } from "./TagBadge";
 import { cn } from "@/lib/utils";
+import CategoryMultiSelect from "./CategoryMultiSelect";
 
 // Types
 // Local Transaction interface removed - using shared Transaction from lib/types/dashboard
@@ -36,7 +37,8 @@ export default function TransactionsClient() {
   const [linkStatus, setLinkStatus] = useState<"all" | "linked" | "unlinked">("all");
   const [originFilter, setOriginFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [minAmount, setMinAmount] = useState("");
@@ -178,7 +180,8 @@ export default function TransactionsClient() {
     setLinkStatus("all");
     setOriginFilter("all");
     setTypeFilter("all");
-    setCategoryFilter("all");
+    setSelectedCategories([]);
+    setExcludedCategories([]);
     setDateFrom("");
     setDateTo("");
     setMinAmount("");
@@ -217,16 +220,41 @@ export default function TransactionsClient() {
       filtered = filtered.filter((t) => t.transaction_type === typeFilter);
     }
 
-    // Category filter
-    if (categoryFilter !== "all") {
-      const selectedCat = categories.find((c) => c.id === categoryFilter);
+    // Category filter (inclusion)
+    if (selectedCategories.length > 0) {
+      const matchedIds = new Set<string>();
+      selectedCategories.forEach((catId) => {
+        getAllCategoryIds(catId, categories).forEach((id) => matchedIds.add(id));
+      });
+
+      const matchedNames = new Set<string>();
+      matchedIds.forEach((id) => {
+        const cat = categories.find((c) => c.id === id);
+        if (cat) matchedNames.add(cat.name);
+      });
+
       filtered = filtered.filter((t) => {
         if (!t.category) return false;
-        // Match by ID
-        if (t.category === categoryFilter) return true;
-        // Match by Name
-        if (selectedCat && t.category === selectedCat.name) return true;
-        return false;
+        return matchedIds.has(t.category) || matchedNames.has(t.category);
+      });
+    }
+
+    // Category filter (exclusion)
+    if (excludedCategories.length > 0) {
+      const excludedIds = new Set<string>();
+      excludedCategories.forEach((catId) => {
+        getAllCategoryIds(catId, categories).forEach((id) => excludedIds.add(id));
+      });
+
+      const excludedNames = new Set<string>();
+      excludedIds.forEach((id) => {
+        const cat = categories.find((c) => c.id === id);
+        if (cat) excludedNames.add(cat.name);
+      });
+
+      filtered = filtered.filter((t) => {
+        if (!t.category) return true;
+        return !excludedIds.has(t.category) && !excludedNames.has(t.category);
       });
     }
 
@@ -269,7 +297,7 @@ export default function TransactionsClient() {
     });
 
     return filtered;
-  }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, categoryFilter, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
+  }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
 
   // ===== PAGINATION =====
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
@@ -528,23 +556,24 @@ export default function TransactionsClient() {
         </Tabs>
       </div>
 
-      {/* Category Filter */}
-      <div>
-        <Label className="text-xs">Kategoria</Label>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger>
-            <SelectValue placeholder="Wszystkie kategorie" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Wszystkie kategorie</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.id}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Category Multi-Select Filters */}
+      <CategoryMultiSelect
+        label="Kategorie"
+        categories={categories}
+        selectedIds={selectedCategories}
+        onChange={setSelectedCategories}
+        placeholder="Filtruj kategorie..."
+        iconColorClass="text-blue-400"
+      />
+
+      <CategoryMultiSelect
+        label="Wykluczone kategorie"
+        categories={categories}
+        selectedIds={excludedCategories}
+        onChange={setExcludedCategories}
+        placeholder="Filtruj wykluczone..."
+        iconColorClass="text-red-400"
+      />
 
       {/* Date Range */}
       <div>
