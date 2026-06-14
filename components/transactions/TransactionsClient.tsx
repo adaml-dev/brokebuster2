@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter, Download } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 
 // Dialogs
@@ -72,6 +72,7 @@ export default function TransactionsClient() {
     categoryFilter: "",
     seriesRepetitions: 1,
     seriesIntervalMonths: 1,
+    tagIds: [] as string[],
   });
 
   // ===== DATA FETCHING =====
@@ -418,6 +419,7 @@ export default function TransactionsClient() {
         categoryFilter: "",
         seriesRepetitions: 1,
         seriesIntervalMonths: 1,
+        tagIds: [] as string[],
       });
     } catch (error) {
       console.error("Error creating transaction:", error);
@@ -459,6 +461,23 @@ export default function TransactionsClient() {
   const handleEditTransaction = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setIsEditDialogOpen(true);
+  };
+
+  const handleCopyTransaction = (t: Transaction) => {
+    setManualEntryFormData({
+      date: t.date || new Date().toISOString().split("T")[0],
+      transaction_type: t.transaction_type || "done",
+      amount: t.amount !== undefined && t.amount !== null ? String(t.amount) : "",
+      payee: t.payee || "",
+      description: t.description || "",
+      origin: t.origin || "cash",
+      category: t.category || "",
+      categoryFilter: "",
+      seriesRepetitions: 1,
+      seriesIntervalMonths: 1,
+      tagIds: t.tags?.map(tag => tag.id) || [],
+    });
+    setIsAddDialogOpen(true);
   };
 
   const handleBulkEdit = () => {
@@ -830,6 +849,13 @@ export default function TransactionsClient() {
                           onClick={() => handleEditTransaction(t)}
                         >
                           <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleCopyTransaction(t)}
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
