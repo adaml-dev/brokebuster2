@@ -299,6 +299,11 @@ export default function TransactionsClient() {
     return filtered;
   }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
 
+  // Reset currentPage to 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags]);
+
   // ===== PAGINATION =====
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
   const paginatedTransactions = useMemo(() => {
@@ -680,7 +685,12 @@ export default function TransactionsClient() {
                   Filtry
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto">
+              <SheetContent
+                side="left"
+                className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto"
+                onPointerDownOutside={(e) => e.preventDefault()}
+                onInteractOutside={(e) => e.preventDefault()}
+              >
                 <SheetHeader className="mb-4">
                   <SheetTitle className="text-white">Filtry i Kontrole</SheetTitle>
                 </SheetHeader>
