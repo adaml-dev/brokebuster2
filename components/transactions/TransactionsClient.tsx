@@ -688,8 +688,13 @@ export default function TransactionsClient() {
               <SheetContent
                 side="left"
                 className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto"
-                onPointerDownOutside={(e) => e.preventDefault()}
-                onInteractOutside={(e) => e.preventDefault()}
+                hideCloseButton={true}
+                onInteractOutside={(e) => {
+                  const originalEvent = e.detail.originalEvent;
+                  if (originalEvent.type === 'focusin' || originalEvent.type === 'focusout') {
+                    e.preventDefault();
+                  }
+                }}
               >
                 <SheetHeader className="mb-4">
                   <SheetTitle className="text-white">Filtry i Kontrole</SheetTitle>
