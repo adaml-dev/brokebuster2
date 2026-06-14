@@ -14,7 +14,29 @@ interface UseDashboardStateProps {
 
 export const useDashboardState = ({ categories, transactions }: UseDashboardStateProps) => {
   // Stan rozwijania kategorii
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      const savedState = localStorage.getItem('dashboardState');
+      if (savedState) {
+        try {
+          const parsed = JSON.parse(savedState);
+          if (parsed.expandedCats && Array.isArray(parsed.expandedCats)) {
+            return new Set(parsed.expandedCats);
+          }
+        } catch (e) {}
+      }
+      const savedExpanded = localStorage.getItem("dashboardExpandedCategories");
+      if (savedExpanded) {
+        try {
+          const parsed = JSON.parse(savedExpanded);
+          if (Array.isArray(parsed)) {
+            return new Set(parsed);
+          }
+        } catch (e) {}
+      }
+    }
+    return new Set<string>();
+  });
 
   // Stan filtrowania kategorii
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -222,14 +244,33 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
         setExpandedCats(initialExpanded);
       }
     } else {
-      const initialExpanded = new Set<string>();
-      categories.forEach(c => {
-        if (c.is_expanded) initialExpanded.add(c.id);
-      });
-      setExpandedCats(initialExpanded);
+      const savedExpanded = localStorage.getItem("dashboardExpandedCategories");
+      if (savedExpanded) {
+        try {
+          const parsed = JSON.parse(savedExpanded);
+          if (Array.isArray(parsed)) {
+            setExpandedCats(new Set(parsed));
+          }
+        } catch (e) {
+          console.error("Error loading expanded categories:", e);
+        }
+      } else {
+        const initialExpanded = new Set<string>();
+        categories.forEach(c => {
+          if (c.is_expanded) initialExpanded.add(c.id);
+        });
+        setExpandedCats(initialExpanded);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories.length]);
+
+  // Efekt: Zapisuj rozwijane kategorie przy każdej zmianie po załadowaniu stanu początkowego
+  useEffect(() => {
+    if (stateLoadedRef.current) {
+      localStorage.setItem("dashboardExpandedCategories", JSON.stringify(Array.from(expandedCats)));
+    }
+  }, [expandedCats]);
 
   return {
     // Stan

@@ -48,7 +48,29 @@ export default function Dashboard2Client({
     const [twoColumnMode, setTwoColumnMode] = useState(false);
 
     // UI state for Category Tree
-    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => {
+        if (typeof window !== "undefined") {
+            const savedState = localStorage.getItem('dashboard2State');
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    if (state.expandedCategories && Array.isArray(state.expandedCategories)) {
+                        return new Set(state.expandedCategories);
+                    }
+                } catch (e) {}
+            }
+            const savedExpanded = localStorage.getItem("dashboard2ExpandedCategories");
+            if (savedExpanded) {
+                try {
+                    const parsed = JSON.parse(savedExpanded);
+                    if (Array.isArray(parsed)) {
+                        return new Set(parsed);
+                    }
+                } catch (e) {}
+            }
+        }
+        return new Set<string>();
+    });
 
     // Filters and Sorting
     const [middlePanelFilter, setMiddlePanelFilter] = useState("");
@@ -97,6 +119,17 @@ export default function Dashboard2Client({
         window.addEventListener('beforeunload', saveDashboard2State);
         return () => window.removeEventListener('beforeunload', saveDashboard2State);
     }, [saveDashboard2State]);
+
+    const dashboard2LoadedRef = React.useRef(false);
+    useEffect(() => {
+        dashboard2LoadedRef.current = true;
+    }, []);
+
+    useEffect(() => {
+        if (dashboard2LoadedRef.current) {
+            localStorage.setItem("dashboard2ExpandedCategories", JSON.stringify(Array.from(expandedCategories)));
+        }
+    }, [expandedCategories]);
 
     const pivotData = usePivotCalculations({
         transactions,
