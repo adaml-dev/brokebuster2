@@ -734,8 +734,8 @@ export default function TransactionsClient() {
           )}
 
           {/* Table */}
-          <div className="flex-1 overflow-auto border border-neutral-800 rounded-md">
-            <Table>
+          <div className="flex-1 min-h-0 border border-neutral-800 rounded-md flex flex-col">
+            <Table wrapperClassName="flex-1 overflow-auto">
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
