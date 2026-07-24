@@ -24,6 +24,22 @@ export default function CarryOverAssistant({
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("isCarryOverAssistantOpen");
+      if (saved === "true") {
+        setIsOpen(true);
+      }
+    }
+  }, []);
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("isCarryOverAssistantOpen", String(open));
+    }
+  };
+
   // Stan sortowania
   const [sortColumn, setSortColumn] = useState<string>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
@@ -31,7 +47,7 @@ export default function CarryOverAssistant({
   // Stan toggle: traktuj bieżący mc jako zaległy
   const [treatCurrentAsMissed, setTreatCurrentAsMissed] = useState(false);
 
-  // Stan drugiego modalu (analiza wydatków Done)
+  // Stan drugiego modalu (analiza transakcji Done)
   const [analysisCell, setAnalysisCell] = useState<{
     monthKey: string;
     categoryId: string;
@@ -212,7 +228,6 @@ export default function CarryOverAssistant({
         }),
       });
       if (!res.ok) throw new Error("Failed to bulk move");
-      setIsOpen(false);
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
@@ -235,7 +250,6 @@ export default function CarryOverAssistant({
         }),
       });
       if (!res.ok) throw new Error("Failed to bulk mark realized");
-      setIsOpen(false);
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
@@ -310,7 +324,7 @@ export default function CarryOverAssistant({
               </div>
             </div>
             <Button
-              onClick={() => setIsOpen(true)}
+              onClick={() => handleOpenChange(true)}
               size="sm"
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-md shadow-amber-900/20 hover:scale-[1.02] transition-all duration-200 shrink-0"
             >
@@ -323,7 +337,7 @@ export default function CarryOverAssistant({
       {/* Jeśli baner się nie wyświetlił z powodu braku zaległości w przeszłości, ale użytkownik włączył filtr w ustawieniach, możemy dodać mały przycisk debug, ale w tym projekcie baner pokazuje się automatycznie jeśli zaległe > 0 */}
 
       {/* Okno zarządzania zaległościami */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-5xl bg-neutral-900 border-neutral-800 text-white flex flex-col max-h-[85vh] overflow-hidden">
           <DialogHeader className="pb-2 border-b border-neutral-800 flex-shrink-0">
             <DialogTitle className="text-lg font-bold flex items-center justify-between gap-2 text-amber-400">
@@ -393,11 +407,11 @@ export default function CarryOverAssistant({
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={(e) => {
+                             onClick={(e) => {
                               e.stopPropagation();
                               handleRowClick(t);
                             }}
-                            title="Analizuj powiązane wydatki rzeczywiste (Done)"
+                            title="Analizuj powiązane transakcje rzeczywiste (Done)"
                             className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
                           >
                             <Eye className="h-3.5 w-3.5 mr-1" /> Done
@@ -476,7 +490,7 @@ export default function CarryOverAssistant({
         </DialogContent>
       </Dialog>
 
-      {/* Drugi modal - Analiza wydatków Done */}
+      {/* Drugi modal - Analiza transakcji Done */}
       <Dialog open={analysisCell !== null} onOpenChange={(open) => !open && setAnalysisCell(null)}>
         <DialogContent className="max-w-3xl bg-neutral-950 border-neutral-800 text-white flex flex-col max-h-[75vh] overflow-hidden">
           <DialogHeader className="pb-3 border-b border-neutral-800 flex-shrink-0">
@@ -484,7 +498,7 @@ export default function CarryOverAssistant({
               <Search className="h-4 w-4" /> Analiza transakcji rzeczywistych (Done)
             </DialogTitle>
             <DialogDescription className="text-neutral-400 text-xs mt-1">
-              Przegląd rzeczywistych wydatków w kategorii <span className="text-blue-300 font-semibold">{analysisCell?.categoryName}</span> w miesiącu <span className="text-blue-300 font-semibold">{analysisCell?.monthKey}</span>.
+              Przegląd rzeczywistych transakcji w kategorii <span className="text-blue-300 font-semibold">{analysisCell?.categoryName}</span> w miesiącu <span className="text-blue-300 font-semibold">{analysisCell?.monthKey}</span>.
             </DialogDescription>
           </DialogHeader>
 
@@ -505,7 +519,7 @@ export default function CarryOverAssistant({
 
           {/* Tabela transakcji rzeczywistych (Done) */}
           <div className="flex-1 overflow-auto py-4 min-h-[150px]">
-            <h4 className="text-xs font-semibold text-neutral-400 mb-2">Wydatki rzeczywiste w tym okresie:</h4>
+            <h4 className="text-xs font-semibold text-neutral-400 mb-2">Transakcje rzeczywiste w tym okresie:</h4>
             <Table>
               <TableHeader className="bg-neutral-900 sticky top-0 z-10">
                 <TableRow className="border-b border-neutral-800">
@@ -547,7 +561,7 @@ export default function CarryOverAssistant({
           {/* Przyciski operacyjne analizy */}
           <div className="pt-3 border-t border-neutral-800 flex items-center justify-between flex-shrink-0">
             <div className="text-xs text-neutral-400">
-              Suma rzeczywistych wydatków:{" "}
+              Suma transakcji rzeczywistych:{" "}
               <span className="font-semibold text-white">
                 {formatCurrency(doneTransactionsForAnalysis.reduce((sum, t) => sum + Number(t.amount), 0))}zł
               </span>
