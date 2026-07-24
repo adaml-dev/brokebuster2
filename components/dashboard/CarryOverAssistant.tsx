@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { AlertTriangle, Calendar, Check, Trash2, ArrowRight, X, Eye, Info, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,9 +58,10 @@ export default function CarryOverAssistant({
 
   const today = new Date();
   const currentMonthKey = getMonthKey(today);
-
+ 
   // 1. Zidentyfikuj zaległe transakcje
   const missedTransactions = useMemo(() => {
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     return transactions.filter((t) => {
       if (t.transaction_type !== "planned" || t.is_realized) return false;
       const tDate = new Date(t.date);
@@ -67,10 +69,18 @@ export default function CarryOverAssistant({
       if (treatCurrentAsMissed) {
         return tMonthKey <= currentMonthKey;
       } else {
-        return tMonthKey < currentMonthKey;
+        return tMonthKey < currentMonthKey || (tMonthKey === currentMonthKey && t.date < todayStr);
       }
     });
-  }, [transactions, currentMonthKey, treatCurrentAsMissed]);
+  }, [transactions, currentMonthKey, treatCurrentAsMissed, today]);
+
+  const onlyCurrentMonthMissed = useMemo(() => {
+    if (missedTransactions.length === 0) return false;
+    return missedTransactions.every((t) => {
+      const tDate = new Date(t.date);
+      return getMonthKey(tDate) === currentMonthKey;
+    });
+  }, [missedTransactions, currentMonthKey]);
 
   const getCategoryName = (categoryId: string | null | undefined) => {
     if (!categoryId) return "-";
@@ -305,17 +315,33 @@ export default function CarryOverAssistant({
       {/* Baner ostrzegawczy na Dashboardzie */}
       {missedTransactions.length > 0 && (
         <div className="mb-6">
-          <div className="bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-neutral-900/90 border border-amber-500/30 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg shadow-orange-950/10">
+          <div className={cn(
+            "border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg transition-all duration-200",
+            onlyCurrentMonthMissed
+              ? "bg-gradient-to-r from-blue-950/40 via-slate-900/40 to-neutral-900/90 border-blue-500/20 shadow-blue-950/5"
+              : "bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-neutral-900/90 border-amber-500/30 shadow-orange-950/10"
+          )}>
             <div className="flex items-start md:items-center gap-3">
-              <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30">
-                <AlertTriangle className="h-5 w-5" />
+              <div className={cn(
+                "p-2 rounded-lg border transition-all duration-200",
+                onlyCurrentMonthMissed
+                  ? "bg-blue-500/15 text-blue-400 border-blue-500/25"
+                  : "bg-amber-500/20 text-amber-400 border-amber-500/30"
+              )}>
+                {onlyCurrentMonthMissed ? (
+                  <Info className="h-5 w-5" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5" />
+                )}
               </div>
               <div>
                 <h4 className="text-sm font-semibold text-white">
                   Wykryto zaległe transakcje zaplanowane ({missedTransactions.length})
                 </h4>
                 <p className="text-xs text-neutral-400 mt-0.5">
-                  Masz planowane transakcje z poprzednich miesięcy, które nie zostały oznaczone jako zrealizowane. Suma zaległości:{" "}
+                  {onlyCurrentMonthMissed
+                    ? "Masz planowane transakcje z bieżącego miesiąca, które minęły i nie zostały oznaczone jako zrealizowane. Suma: "
+                    : "Masz planowane transakcje z poprzednich miesięcy, które nie zostały oznaczone jako zrealizowane. Suma zaległości: "}
                   <span className={totalAmount < 0 ? "text-red-400 font-bold" : "text-green-400 font-bold"}>
                     {formatCurrency(totalAmount)}zł
                   </span>
@@ -326,7 +352,12 @@ export default function CarryOverAssistant({
             <Button
               onClick={() => handleOpenChange(true)}
               size="sm"
-              className="bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-md shadow-amber-900/20 hover:scale-[1.02] transition-all duration-200 shrink-0"
+              className={cn(
+                "font-medium shadow-md hover:scale-[1.02] transition-all duration-200 shrink-0 text-white",
+                onlyCurrentMonthMissed
+                  ? "bg-blue-600 hover:bg-blue-700 shadow-blue-900/20"
+                  : "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20"
+              )}
             >
               Zarządzaj zaległościami <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -363,7 +394,7 @@ export default function CarryOverAssistant({
                 className="border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
               />
               <Label htmlFor="treat-current-as-missed" className="text-xs font-medium text-neutral-300 cursor-pointer select-none">
-                Traktuj bieżący miesiąc jako zaległy (pokaż Planned z {currentMonthKey})
+                Pokaż wszystkie (również przyszłe) transakcje z bieżącego miesiąca
               </Label>
             </div>
           </div>
