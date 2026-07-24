@@ -6,6 +6,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -47,6 +48,7 @@ export default function DashboardClient({
   accountStatements,
   tags,
 }: DashboardClientProps) {
+  const router = useRouter();
   const [selectedYear] = useState(new Date().getFullYear());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
@@ -166,7 +168,7 @@ export default function DashboardClient({
       <CarryOverAssistant
         transactions={transactions}
         categories={categories}
-        onRefresh={() => window.location.reload()}
+        onRefresh={() => router.refresh()}
       />
       <Card className="bg-neutral-900 border-neutral-800 flex-1 flex flex-col overflow-hidden">
         {/* Transaction Panel (optional - pokazuje się po kliknięciu komórki) */}

@@ -304,7 +304,7 @@ export default function CarryOverAssistant({
     <>
       {/* Baner ostrzegawczy na Dashboardzie */}
       {missedTransactions.length > 0 && (
-        <div className="mb-6 animate-pulse hover:animate-none transition-all duration-300">
+        <div className="mb-6">
           <div className="bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-neutral-900/90 border border-amber-500/30 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg shadow-orange-950/10">
             <div className="flex items-start md:items-center gap-3">
               <div className="p-2 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/30">

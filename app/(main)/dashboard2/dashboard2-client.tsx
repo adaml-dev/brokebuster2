@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Transaction, Account, Category, AccountStatement, PivotData, ColumnData, SortDirection, Tag } from "@/lib/types/dashboard";
 import { usePivotCalculations } from "@/lib/hooks/usePivotCalculations";
 import { useTransactionActions } from "@/lib/hooks/useTransactionActions";
@@ -41,6 +42,7 @@ export default function Dashboard2Client({
     accountStatements,
     tags,
 }: Dashboard2ClientProps) {
+    const router = useRouter();
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(getMonthKey(new Date()));
     const [checkedMonths, setCheckedMonths] = useState<Set<string>>(new Set());
@@ -442,7 +444,7 @@ export default function Dashboard2Client({
             <CarryOverAssistant
                 transactions={transactions}
                 categories={categories}
-                onRefresh={() => window.location.reload()}
+                onRefresh={() => router.refresh()}
             />
             <div className="flex flex-col lg:flex-row flex-1 gap-4 lg:overflow-hidden min-h-0">
                 {/* LEFT PANEL - MONTHS (Mobile: full width, Desktop: 25%) */}
