@@ -20,6 +20,7 @@ interface UsePivotCalculationsProps {
   accountStatements: AccountStatement[];
   calculationMode: 'mixed' | 'planned' | 'done' | 'diff';
   starredOnly?: boolean;
+  hideUnstarredParents?: boolean;
 }
 
 export const usePivotCalculations = ({
@@ -30,6 +31,7 @@ export const usePivotCalculations = ({
   accountStatements,
   calculationMode,
   starredOnly = false,
+  hideUnstarredParents = false,
 }: UsePivotCalculationsProps): PivotData => {
   return useMemo(() => {
     const today = new Date();
@@ -101,13 +103,42 @@ export const usePivotCalculations = ({
     // 3. Budowa drzewa
     const categoryTree = buildCategoryTree(categories);
 
-    // Pruning logic for starredOnly
-    const pruneTree = (nodes: Category[]): Category[] => {
+    const childrenMap = new Map<string, string[]>();
+    categories.forEach(c => {
+      if (c.parent) {
+        if (!childrenMap.has(c.parent)) childrenMap.set(c.parent, []);
+        childrenMap.get(c.parent)!.push(c.id);
+      }
+    });
+
+    const hasStarredAncestor = (catId: string): boolean => {
+      let current = categoryMap.get(catId);
+      while (current) {
+        if (current.is_starred) return true;
+        current = current.parent ? categoryMap.get(current.parent) : undefined;
+      }
+      return false;
+    };
+
+    const hasStarredDescendant = (catId: string): boolean => {
+      const children = childrenMap.get(catId) || [];
+      for (const childId of children) {
+        const child = categoryMap.get(childId);
+        if (child && (child.is_starred || hasStarredDescendant(childId))) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // Pruning logic for starredOnly (Case A: tree structure preserved)
+    const pruneTree = (nodes: Category[], parentStarred = false): Category[] => {
       return nodes
         .map(node => {
-          const prunedChildren = node.children ? pruneTree(node.children) : [];
-          const isStarredOrHasStarredDescendant = !!node.is_starred || prunedChildren.length > 0;
-          if (isStarredOrHasStarredDescendant) {
+          const isNodeStarred = !!node.is_starred || parentStarred;
+          const keepNode = isNodeStarred || hasStarredDescendant(node.id);
+          if (keepNode) {
+            const prunedChildren = node.children ? pruneTree(node.children, isNodeStarred) : [];
             return {
               ...node,
               children: prunedChildren
@@ -118,11 +149,50 @@ export const usePivotCalculations = ({
         .filter((node): node is Category => node !== null);
     };
 
+    // Flat tree logic for starredOnly (Case B: unstarred parents hidden)
+    const buildFlatTree = (): Category[] => {
+      // 1. Filter categories to only keep visible ones
+      const visibleCats = categories.filter(c => c.is_starred || hasStarredAncestor(c.id));
+      
+      // 2. Create new nodes
+      const map = new Map<string, Category>();
+      visibleCats.forEach(c => {
+        map.set(c.id, { ...c, children: [] });
+      });
+
+      const roots: Category[] = [];
+      
+      // 3. Link them
+      visibleCats.forEach(c => {
+        const node = map.get(c.id)!;
+        if (c.parent && map.has(c.parent)) {
+          map.get(c.parent)!.children!.push(node);
+        } else {
+          roots.push(node);
+        }
+      });
+
+      // Sort by order/name
+      const sortTree = (nodes: Category[]) => {
+        nodes.sort((a, b) => (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name));
+        nodes.forEach(n => {
+          if (n.children) sortTree(n.children);
+        });
+      };
+      sortTree(roots);
+      
+      return roots;
+    };
+
     let finalCategoryTree = categoryTree;
     const visibleCategoryIds = new Set<string>();
 
     if (starredOnly) {
-      finalCategoryTree = pruneTree(categoryTree);
+      if (hideUnstarredParents) {
+        finalCategoryTree = buildFlatTree();
+      } else {
+        finalCategoryTree = pruneTree(categoryTree);
+      }
       
       const collectIds = (nodes: Category[]) => {
         nodes.forEach(n => {
@@ -352,5 +422,5 @@ export const usePivotCalculations = ({
       currentMonthKey,
       restCategoriesTotals
     };
-  }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode, starredOnly]);
+  }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode, starredOnly, hideUnstarredParents]);
 };

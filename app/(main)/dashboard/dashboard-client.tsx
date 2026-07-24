@@ -52,6 +52,7 @@ export default function DashboardClient({
   const [selectedYear] = useState(new Date().getFullYear());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [starredOnly, setStarredOnly] = useState(false);
+  const [hideUnstarredParents, setHideUnstarredParents] = useState(false);
 
   // === HOOKI ===
 
@@ -67,6 +68,7 @@ export default function DashboardClient({
     accountStatements,
     calculationMode: dashboardState.calculationMode,
     starredOnly,
+    hideUnstarredParents,
   });
 
   // Transaction filters (sortowanie, filtrowanie)
@@ -247,6 +249,8 @@ export default function DashboardClient({
             currentMonthOffset={new Date().getMonth()}
             starredOnly={starredOnly}
             onToggleStarredOnly={() => setStarredOnly(!starredOnly)}
+            hideUnstarredParents={hideUnstarredParents}
+            onToggleHideUnstarredParents={() => setHideUnstarredParents(!hideUnstarredParents)}
           />
         </CardHeader>
 

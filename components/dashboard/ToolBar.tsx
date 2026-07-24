@@ -21,6 +21,7 @@ import {
   CheckCircle,
   Percent,
   Star,
+  FolderMinus,
 } from "lucide-react";
 import { CalculationMode } from "@/lib/types/dashboard";
 
@@ -41,6 +42,8 @@ interface ToolBarProps {
   currentMonthOffset: number;
   starredOnly: boolean;
   onToggleStarredOnly: () => void;
+  hideUnstarredParents: boolean;
+  onToggleHideUnstarredParents: () => void;
 }
 
 export const ToolBar: React.FC<ToolBarProps> = ({
@@ -60,6 +63,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({
   currentMonthOffset,
   starredOnly,
   onToggleStarredOnly,
+  hideUnstarredParents,
+  onToggleHideUnstarredParents,
 }) => {
   return (
     <div className="flex flex-col py-2 gap-2">
@@ -197,6 +202,19 @@ export const ToolBar: React.FC<ToolBarProps> = ({
         >
           <Star className={`h-5 w-5 ${starredOnly ? 'text-amber-400 fill-amber-400' : 'text-neutral-400'}`} />
         </Button>
+
+        {starredOnly && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onToggleHideUnstarredParents}
+            className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-amber-500 transition-colors touch-manipulation ${hideUnstarredParents ? 'bg-amber-950/60 border-amber-500' : ''
+              }`}
+            title="Ukryj nieogwiazdkowanych rodziców (płaska lista)"
+          >
+            <FolderMinus className={`h-5 w-5 ${hideUnstarredParents ? 'text-amber-400' : 'text-neutral-400'}`} />
+          </Button>
+        )}
 
         {/* SEPARADOR */}
         <div className="w-px h-6 bg-neutral-700 mx-1"></div>
