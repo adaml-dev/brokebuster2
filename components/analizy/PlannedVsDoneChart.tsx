@@ -13,6 +13,7 @@ import {
   LineChart,
   Line,
   ReferenceLine,
+  ComposedChart,
 } from "recharts";
 import { Transaction, Category } from "@/lib/types/dashboard";
 import { getMonthKey } from "@/lib/utils/dashboard";
@@ -20,7 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronRight, BarChart3, Search, ChevronLeft } from "lucide-react";
 
@@ -274,17 +275,19 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
   const categoryTree = useMemo(() => buildCategoryTree(categories), [categories]);
   const flatWithChildren = useMemo(() => flattenTree(categoryTree), [categoryTree]);
 
-  // Date range — derive min/max from transaction data
-  const { minMonth, maxMonth } = useMemo(() => {
-    const keys = transactions.map((t) => getMonthKey(new Date(t.date))).sort();
-    return {
-      minMonth: keys[0] || getMonthKey(new Date()),
-      maxMonth: keys[keys.length - 1] || getMonthKey(new Date()),
-    };
-  }, [transactions]);
+  // Stan aktywnej karty (tab)
+  const [activeTab, setActiveTab] = useState<string>("compare");
 
-  const [dateFrom, setDateFrom] = useState(() => minMonth);
-  const [dateTo, setDateTo] = useState(() => maxMonth);
+  // Domyślna data: miniony miesiąc (poprzedni miesiąc kalendarzowy)
+  const lastMonthKey = useMemo(() => {
+    const d = new Date();
+    d.setDate(1); // Unikamy błędów z przesunięciem dni na koniec miesiąca
+    d.setMonth(d.getMonth() - 1);
+    return getMonthKey(d);
+  }, []);
+
+  const [dateFrom, setDateFrom] = useState(() => lastMonthKey);
+  const [dateTo, setDateTo] = useState(() => lastMonthKey);
   const [selectedCatIds, setSelectedCatIds] = useState<Set<string>>(new Set());
   const [cumulative, setCumulative] = useState(false);
   const [catFilter, setCatFilter] = useState("");
@@ -310,7 +313,7 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
 
   // Compute per-month planned/done sums for selected categories
   const chartData = useMemo(() => {
-    // Determine which transaction IDs to include
+    // Determine which category IDs to include
     const catIds = selectedCatIds.size > 0 ? selectedCatIds : new Set(flatWithChildren.map((c) => c.id));
 
     const monthly: Record<string, { planned: number; done: number }> = {};
@@ -361,9 +364,9 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
         <div className="px-4 py-3 border-b border-neutral-800">
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-cyan-400" />
-            Planned vs Done
+            Analizy finansowe
           </h2>
-          <p className="text-[11px] text-neutral-500 mt-0.5">Porównanie transakcji</p>
+          <p className="text-[11px] text-neutral-500 mt-0.5">Porównania i trendy</p>
         </div>
 
         {/* Date range — FROM picker */}
@@ -409,34 +412,36 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
             />
           </div>
 
-          {/* Chart type toggle */}
-          <div className="flex items-center justify-between">
-            <Label className="text-xs text-neutral-300">Typ wykresu</Label>
-            <div className="flex bg-neutral-800 rounded-md p-0.5">
-              <button
-                onClick={() => setChartType("bar")}
-                className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-medium transition-all",
-                  chartType === "bar"
-                    ? "bg-cyan-700 text-white"
-                    : "text-neutral-400 hover:text-white"
-                )}
-              >
-                Słupki
-              </button>
-              <button
-                onClick={() => setChartType("line")}
-                className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-medium transition-all",
-                  chartType === "line"
-                    ? "bg-cyan-700 text-white"
-                    : "text-neutral-400 hover:text-white"
-                )}
-              >
-                Linie
-              </button>
+          {/* Chart type toggle — show only for compare tab */}
+          {activeTab === "compare" && (
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-neutral-300">Typ wykresu</Label>
+              <div className="flex bg-neutral-800 rounded-md p-0.5">
+                <button
+                  onClick={() => setChartType("bar")}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                    chartType === "bar"
+                      ? "bg-cyan-700 text-white"
+                      : "text-neutral-400 hover:text-white"
+                  )}
+                >
+                  Słupki
+                </button>
+                <button
+                  onClick={() => setChartType("line")}
+                  className={cn(
+                    "px-2 py-0.5 rounded text-[10px] font-medium transition-all",
+                    chartType === "line"
+                      ? "bg-cyan-700 text-white"
+                      : "text-neutral-400 hover:text-white"
+                  )}
+                >
+                  Linie
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Category filter */}
@@ -483,12 +488,32 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
 
       {/* ---- CHART AREA ---- */}
       <div className="flex-1 flex flex-col overflow-hidden bg-neutral-950 p-5">
-        {/* Chart header */}
-        <div className="mb-4">
+        
+        {/* Przełącznik kart (Tabs) */}
+        <div className="mb-6 flex-shrink-0">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="bg-neutral-900 border border-neutral-800 p-1 w-full justify-start max-w-lg">
+              <TabsTrigger value="compare" className="text-xs data-[state=active]:bg-cyan-700 data-[state=active]:text-white px-4 py-1.5">
+                Porównanie (Słupki/Linie)
+              </TabsTrigger>
+              <TabsTrigger value="composed" className="text-xs data-[state=active]:bg-cyan-700 data-[state=active]:text-white px-4 py-1.5">
+                Plan (Linia) vs Realizacja (Słupki)
+              </TabsTrigger>
+              <TabsTrigger value="custom" className="text-xs data-[state=active]:bg-cyan-700 data-[state=active]:text-white px-4 py-1.5">
+                Inne analizy
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        {/* Nagłówek wykresu */}
+        <div className="mb-4 flex-shrink-0">
           <div className="flex items-start justify-between">
             <div>
               <h3 className="text-base font-semibold text-white">
-                {cumulative ? "Narastające sumy" : "Sumy miesięczne"} — Planned vs Done
+                {activeTab === "compare" && (cumulative ? "Narastające sumy — Porównanie" : "Sumy miesięczne — Porównanie")}
+                {activeTab === "composed" && (cumulative ? "Narastające sumy — Plan (Linia) vs Realizacja (Słupki)" : "Sumy miesięczne — Plan (Linia) vs Realizacja (Słupki)")}
+                {activeTab === "custom" && "Dodatkowe analizy"}
               </h3>
               <p className="text-xs text-neutral-500 mt-0.5">
                 {selectedCatIds.size > 0
@@ -498,8 +523,8 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
                 {monthRange.length} {monthRange.length === 1 ? "miesiąc" : monthRange.length <= 4 ? "miesiące" : "miesięcy"}
               </p>
             </div>
-            {/* Summary badges */}
-            {!noData && (
+            {/* Sumy zbiorcze dla pierwszej i drugiej karty */}
+            {!noData && activeTab !== "custom" && (
               <div className="flex gap-3">
                 {["Planowane", "Zrealizowane"].map((key) => {
                   const total = chartData.reduce((s, d) => s + (d as any)[key], 0);
@@ -518,15 +543,23 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Obszar wykresu */}
         <div className="flex-1 min-h-0">
-          {noData ? (
+          {activeTab === "custom" ? (
+            <div className="flex flex-col items-center justify-center h-full text-neutral-600 bg-neutral-900/10 border border-dashed border-neutral-800 rounded-xl p-8">
+              <BarChart3 className="h-12 w-12 mb-3 opacity-20" />
+              <p className="text-sm font-semibold text-neutral-400">Miejsce na przyszłe analizy</p>
+              <p className="text-xs mt-1 text-neutral-500 max-w-sm text-center">
+                Trzecia karta jest obecnie zarezerwowana na przyszłe zestawienia, np. prognozy budżetowe lub podział procentowy.
+              </p>
+            </div>
+          ) : noData ? (
             <div className="flex flex-col items-center justify-center h-full text-neutral-600">
               <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
               <p className="text-sm">Brak danych do wyświetlenia</p>
-              <p className="text-xs mt-1 opacity-70">Zmień zakres dat lub wybór kategorii</p>
+              <p className="text-xs mt-1 opacity-70">Zmień zakres dat lub wybór kategorii w panelu bocznym</p>
             </div>
-          ) : (
+          ) : activeTab === "compare" ? (
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "bar" ? (
                 <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 40 }}>
@@ -548,9 +581,7 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
                     width={72}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
-                  <Legend
-                    wrapperStyle={{ fontSize: 12, paddingTop: 8, color: "#a3a3a3" }}
-                  />
+                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8, color: "#a3a3a3" }} />
                   <ReferenceLine y={0} stroke="#525252" strokeWidth={1} />
                   <Bar dataKey="Planowane" fill="#7c3aed" radius={[3, 3, 0, 0]} maxBarSize={32} />
                   <Bar dataKey="Zrealizowane" fill="#0891b2" radius={[3, 3, 0, 0]} maxBarSize={32} />
@@ -595,6 +626,42 @@ export default function PlannedVsDoneChart({ transactions, categories }: Planned
                   />
                 </LineChart>
               )}
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#262626" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "#737373", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={{ stroke: "#404040" }}
+                  angle={-45}
+                  textAnchor="end"
+                  interval={0}
+                />
+                <YAxis
+                  tick={{ fill: "#737373", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) => `${formatCurrency(v)}`}
+                  width={72}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8, color: "#a3a3a3" }} />
+                <ReferenceLine y={0} stroke="#525252" strokeWidth={1} />
+                {/* Done as bars */}
+                <Bar dataKey="Zrealizowane" fill="#0891b2" radius={[3, 3, 0, 0]} maxBarSize={32} />
+                {/* Planned as line */}
+                <Line
+                  type="monotone"
+                  dataKey="Planowane"
+                  stroke="#7c3aed"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: "#7c3aed" }}
+                  activeDot={{ r: 6 }}
+                />
+              </ComposedChart>
             </ResponsiveContainer>
           )}
         </div>
