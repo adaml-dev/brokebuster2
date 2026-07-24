@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown,
     Pencil, Trash2, Unlink, CheckCircle2, CircleDashed, ChevronDown,
-    Maximize2, Minimize2, Plus
+    Maximize2, Minimize2, Plus, Star
 } from "lucide-react";
 import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
@@ -43,6 +43,19 @@ export default function Dashboard2Client({
     tags,
 }: Dashboard2ClientProps) {
     const router = useRouter();
+    const handleToggleStar = async (catId: string, isStarred: boolean) => {
+        try {
+            const res = await fetch("/api/categories", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: catId, is_starred: isStarred }),
+            });
+            if (!res.ok) throw new Error("Failed to update category");
+            router.refresh();
+        } catch (error) {
+            console.error("Error toggling star:", error);
+        }
+    };
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
     const [selectedMonth, setSelectedMonth] = useState<string>(getMonthKey(new Date()));
     const [checkedMonths, setCheckedMonths] = useState<Set<string>>(new Set());
@@ -647,6 +660,7 @@ export default function Dashboard2Client({
                                 twoColumnMode={twoColumnMode}
                                 plannedTotals={mergedPlannedTotals}
                                 doneTotals={mergedDoneTotals}
+                                onToggleStar={handleToggleStar}
                             />
                         </div>
                     )}
@@ -948,6 +962,7 @@ function CategoryTreeList({
     twoColumnMode = false,
     plannedTotals = {},
     doneTotals = {},
+    onToggleStar,
 }: {
     categories: Category[],
     mergedTotals: Record<string, number>,
@@ -960,6 +975,7 @@ function CategoryTreeList({
     twoColumnMode?: boolean,
     plannedTotals?: Record<string, number>,
     doneTotals?: Record<string, number>,
+    onToggleStar: (catId: string, isStarred: boolean) => void,
 }) {
     // If filter is active, we should always expand irrelevant of state, 
     // or just show the flat list of matches?
@@ -994,7 +1010,7 @@ function CategoryTreeList({
                     <React.Fragment key={cat.id}>
                         <div
                             className={cn(
-                                "flex items-center py-2 px-2 hover:bg-muted/50 cursor-pointer text-sm border-b border-border/40 transition-colors gap-2",
+                                "flex items-center py-2 px-2 hover:bg-muted/50 cursor-pointer text-sm border-b border-border/40 transition-colors gap-2 group",
                                 isSelected && "bg-muted font-medium border-l-2 border-l-primary"
                             )}
                             style={{ paddingLeft: `${paddingLeft}px` }}
@@ -1018,7 +1034,25 @@ function CategoryTreeList({
                                 )}
                             </div>
 
-                            <span className="truncate flex-1 mr-2 select-none text-foreground">{cat.name}</span>
+                            <span className="truncate flex-1 mr-2 select-none text-foreground flex items-center gap-1.5 min-w-0">
+                                <span className="truncate">{cat.name}</span>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleStar(cat.id, !cat.is_starred);
+                                    }}
+                                    className={cn(
+                                        "focus:outline-none transition-all duration-200 cursor-pointer shrink-0",
+                                        cat.is_starred
+                                            ? "text-amber-500 scale-110"
+                                            : "text-neutral-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"
+                                    )}
+                                    title={cat.is_starred ? "Usuń gwiazdkę" : "Oznacz gwiazdką"}
+                                >
+                                    <Star size={12} fill={cat.is_starred ? "currentColor" : "none"} />
+                                </button>
+                            </span>
 
                             {twoColumnMode ? (
                                 <>
@@ -1058,6 +1092,7 @@ function CategoryTreeList({
                                 twoColumnMode={twoColumnMode}
                                 plannedTotals={plannedTotals}
                                 doneTotals={doneTotals}
+                                onToggleStar={onToggleStar}
                             />
                         )}
                     </React.Fragment>

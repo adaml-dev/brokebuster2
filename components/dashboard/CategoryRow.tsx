@@ -1,11 +1,6 @@
-/**
- * CategoryRow Component
- * Pojedynczy wiersz kategorii w pivot table (z rekurencją dla dzieci)
- */
-
 import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Star } from "lucide-react";
 import { Category, ColumnData, CellInfo } from "@/lib/types/dashboard";
 import { formatCurrency } from "@/lib/utils/dashboard";
 
@@ -24,6 +19,7 @@ interface CategoryRowProps {
   totalValuesMap: Record<string, Record<string, number>>;
   currentMonthKey: string;
   clickedCell: CellInfo | null;
+  onToggleStar: (catId: string, isStarred: boolean) => void;
 }
 
 export const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -41,6 +37,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   totalValuesMap,
   currentMonthKey,
   clickedCell,
+  onToggleStar,
 }) => {
   // Sprawdź czy kategoria powinna być widoczna
   if (!shouldShowCategory(category, categoryFilter, [], parentMatches)) {
@@ -84,6 +81,21 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
             }`}>
             {category.name}
           </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleStar(category.id, !category.is_starred);
+            }}
+            className={`ml-2 focus:outline-none transition-all duration-200 cursor-pointer ${
+              category.is_starred
+                ? "text-amber-500 scale-110"
+                : "text-neutral-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"
+            }`}
+            title={category.is_starred ? "Usuń gwiazdkę" : "Oznacz gwiazdką"}
+          >
+            <Star size={12} fill={category.is_starred ? "currentColor" : "none"} />
+          </button>
         </div>
       </TableCell>
       {columns.map(col => {
@@ -102,7 +114,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
           // WYRÓŻNIONA KOLUMNA (delikatniejsze niebieskie tło)
           cellClass += "bg-blue-900/40 border-x border-blue-500/30 ";
         } else if (isRowSelected) {
-          // WYRÓŻNIONY WIERSZ (tło już jest na wierszu, ale dodajemy border)
+          // WYRÓŻNY WIERSZ (tło już jest na wierszu, ale dodajemy border)
           cellClass += "border-y border-blue-500/20 ";
         } else if (isCurrent) {
           // OBECNY MIESIĄC (jeszcze delikatniejsze)
@@ -150,6 +162,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         totalValuesMap={totalValuesMap}
         currentMonthKey={currentMonthKey}
         clickedCell={clickedCell}
+        onToggleStar={onToggleStar}
       />
     ))
     : [];

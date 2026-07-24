@@ -34,6 +34,7 @@ export interface Category {
   name: string;
   parent: string | null;
   order?: number;
+  is_starred?: boolean;
   is_expanded?: boolean;
   children?: Category[];
 }
@@ -111,6 +112,7 @@ export interface PivotData {
   accountBalances: Record<string, number | null>;
   balanceDiffs: Record<string, number | null>;
   currentMonthKey: string;
+  restCategoriesTotals?: Record<string, number>;
 }
 
 // --- TYPY FORMULARZY ---

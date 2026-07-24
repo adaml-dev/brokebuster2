@@ -51,6 +51,7 @@ export default function DashboardClient({
   const router = useRouter();
   const [selectedYear] = useState(new Date().getFullYear());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [starredOnly, setStarredOnly] = useState(false);
 
   // === HOOKI ===
 
@@ -65,6 +66,7 @@ export default function DashboardClient({
     monthOffset: dashboardState.monthOffset,
     accountStatements,
     calculationMode: dashboardState.calculationMode,
+    starredOnly,
   });
 
   // Transaction filters (sortowanie, filtrowanie)
@@ -125,6 +127,20 @@ export default function DashboardClient({
     }
     return sorted;
   }, [transactions]);
+
+  const handleToggleStar = async (catId: string, isStarred: boolean) => {
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: catId, is_starred: isStarred }),
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      router.refresh();
+    } catch (error) {
+      console.error("Error toggling star:", error);
+    }
+  };
 
   const handleSort = (column: string) => {
     if (dashboardState.sortColumn === column) {
@@ -229,6 +245,8 @@ export default function DashboardClient({
             calculationMode={dashboardState.calculationMode}
             onCalculationModeChange={dashboardState.setCalculationMode}
             currentMonthOffset={new Date().getMonth()}
+            starredOnly={starredOnly}
+            onToggleStarredOnly={() => setStarredOnly(!starredOnly)}
           />
         </CardHeader>
 
@@ -241,6 +259,8 @@ export default function DashboardClient({
             onToggleCategory={dashboardState.toggleCategory}
             onCellClick={dashboardState.handleCellClick}
             clickedCell={dashboardState.clickedCell}
+            onToggleStar={handleToggleStar}
+            starredOnly={starredOnly}
           />
         </CardContent>
       </Card>

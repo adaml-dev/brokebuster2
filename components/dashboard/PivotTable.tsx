@@ -24,6 +24,8 @@ interface PivotTableProps {
   onToggleCategory: (catId: string) => void;
   onCellClick: (categoryId: string, monthKey: string, monthLabel: string) => void;
   clickedCell: CellInfo | null;
+  onToggleStar: (catId: string, isStarred: boolean) => void;
+  starredOnly?: boolean;
 }
 
 export const PivotTable: React.FC<PivotTableProps> = ({
@@ -33,6 +35,8 @@ export const PivotTable: React.FC<PivotTableProps> = ({
   onToggleCategory,
   onCellClick,
   clickedCell,
+  onToggleStar,
+  starredOnly = false,
 }) => {
   return (
     <Table>
@@ -85,9 +89,31 @@ export const PivotTable: React.FC<PivotTableProps> = ({
               totalValuesMap={pivotData.totalValuesMap}
               currentMonthKey={pivotData.currentMonthKey}
               clickedCell={clickedCell}
+              onToggleStar={onToggleStar}
             />
           );
         })}
+        {starredOnly && (
+          <TableRow className="hover:bg-neutral-900 border-b border-neutral-800 font-semibold bg-neutral-950/40">
+            <TableCell className="font-semibold text-neutral-300 sticky left-0 bg-neutral-950 z-10 border-r border-neutral-800 min-w-[200px] py-2.5 pl-[10px]">
+              Reszta kategorii
+            </TableCell>
+            {pivotData.columns.map(col => {
+              const val = pivotData.restCategoriesTotals?.[col.key] || 0;
+              return (
+                <TableCell key={col.key} className="text-right p-2 min-w-[80px] text-xs font-semibold text-neutral-400">
+                  {val !== 0 ? (
+                    <span className={val < 0 ? "text-red-400 font-semibold" : "text-green-400 font-semibold"}>
+                      {formatCurrency(val)}
+                    </span>
+                  ) : (
+                    <span className="text-neutral-600">-</span>
+                  )}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        )}
       </TableBody>
       <TableFooter className="bg-neutral-900 border-t-2 border-neutral-700 sticky bottom-0 z-20">
         {/* Row 1: Bilans Miesięczny (Monthly Totals) */}

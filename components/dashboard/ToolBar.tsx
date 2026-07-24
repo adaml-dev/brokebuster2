@@ -20,6 +20,7 @@ import {
   CalendarClock,
   CheckCircle,
   Percent,
+  Star,
 } from "lucide-react";
 import { CalculationMode } from "@/lib/types/dashboard";
 
@@ -38,6 +39,8 @@ interface ToolBarProps {
   calculationMode: CalculationMode;
   onCalculationModeChange: (mode: CalculationMode) => void;
   currentMonthOffset: number;
+  starredOnly: boolean;
+  onToggleStarredOnly: () => void;
 }
 
 export const ToolBar: React.FC<ToolBarProps> = ({
@@ -55,6 +58,8 @@ export const ToolBar: React.FC<ToolBarProps> = ({
   calculationMode,
   onCalculationModeChange,
   currentMonthOffset,
+  starredOnly,
+  onToggleStarredOnly,
 }) => {
   return (
     <div className="flex flex-col py-2 gap-2">
@@ -180,6 +185,17 @@ export const ToolBar: React.FC<ToolBarProps> = ({
           title="Filtruj kategorie"
         >
           <Filter className="h-5 w-5 text-neutral-400" />
+        </Button>
+
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onToggleStarredOnly}
+          className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-amber-500 transition-colors touch-manipulation ${starredOnly ? 'bg-amber-950/60 border-amber-500' : ''
+            }`}
+          title="Pokaż tylko oznaczone gwiazdką"
+        >
+          <Star className={`h-5 w-5 ${starredOnly ? 'text-amber-400 fill-amber-400' : 'text-neutral-400'}`} />
         </Button>
 
         {/* SEPARADOR */}

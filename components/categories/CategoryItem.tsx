@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Category } from "@/lib/types/dashboard";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { GripVertical, Plus, Pencil, Trash2, AlertTriangle, Star } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useUpdateCategory } from "@/lib/hooks/useCategories";
 
 interface CategoryItemProps {
     category: Category & { transaction_count?: number };
@@ -31,6 +32,8 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
         isDragging,
     } = useSortable({ id: category.id });
 
+    const updateMutation = useUpdateCategory();
+
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -38,6 +41,19 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
     };
 
     const hasTransactions = (category.transaction_count || 0) > 0;
+
+    const handleToggleStar = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+            await updateMutation.mutateAsync({
+                id: category.id,
+                is_starred: !category.is_starred,
+            });
+        } catch (err: any) {
+            console.error("Failed to toggle star:", err);
+        }
+    };
 
     return (
         <div
@@ -55,6 +71,19 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                 <div className="flex flex-col">
                     <div className="font-medium text-sm flex items-center gap-2">
                         {category.name}
+                        <button
+                            type="button"
+                            onClick={handleToggleStar}
+                            className={cn(
+                                "focus:outline-none transition-all duration-200 cursor-pointer",
+                                category.is_starred
+                                    ? "text-amber-500 scale-110"
+                                    : "text-neutral-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"
+                            )}
+                            title={category.is_starred ? "Remove star" : "Add star"}
+                        >
+                            <Star size={14} fill={category.is_starred ? "currentColor" : "none"} />
+                        </button>
                     </div>
                     {hasTransactions && (
                         <span className="text-[10px] text-neutral-500">

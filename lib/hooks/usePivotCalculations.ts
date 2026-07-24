@@ -19,6 +19,7 @@ interface UsePivotCalculationsProps {
   monthOffset: number;
   accountStatements: AccountStatement[];
   calculationMode: 'mixed' | 'planned' | 'done' | 'diff';
+  starredOnly?: boolean;
 }
 
 export const usePivotCalculations = ({
@@ -28,6 +29,7 @@ export const usePivotCalculations = ({
   monthOffset,
   accountStatements,
   calculationMode,
+  starredOnly = false,
 }: UsePivotCalculationsProps): PivotData => {
   return useMemo(() => {
     const today = new Date();
@@ -99,6 +101,38 @@ export const usePivotCalculations = ({
     // 3. Budowa drzewa
     const categoryTree = buildCategoryTree(categories);
 
+    // Pruning logic for starredOnly
+    const pruneTree = (nodes: Category[]): Category[] => {
+      return nodes
+        .map(node => {
+          const prunedChildren = node.children ? pruneTree(node.children) : [];
+          const isStarredOrHasStarredDescendant = !!node.is_starred || prunedChildren.length > 0;
+          if (isStarredOrHasStarredDescendant) {
+            return {
+              ...node,
+              children: prunedChildren
+            } as Category;
+          }
+          return null;
+        })
+        .filter((node): node is Category => node !== null);
+    };
+
+    let finalCategoryTree = categoryTree;
+    const visibleCategoryIds = new Set<string>();
+
+    if (starredOnly) {
+      finalCategoryTree = pruneTree(categoryTree);
+      
+      const collectIds = (nodes: Category[]) => {
+        nodes.forEach(n => {
+          visibleCategoryIds.add(n.id);
+          if (n.children) collectIds(n.children);
+        });
+      };
+      collectIds(finalCategoryTree);
+    }
+
     // 4. Mapa wartości CAŁKOWITYCH (Total Values - z rekurencją)
     const totalValuesMap: Record<string, Record<string, number>> = {};
 
@@ -119,10 +153,12 @@ export const usePivotCalculations = ({
       // Rekurencyjnie dodaj wartości dzieci
       if (node.children && node.children.length > 0) {
         node.children.forEach((child: Category) => {
-          const childTotals = calculateTotals(child);
-          columns.forEach((col: ColumnData) => {
-            nodeTotals[col.key] += childTotals[col.key];
-          });
+          if (!starredOnly || visibleCategoryIds.has(child.id)) {
+            const childTotals = calculateTotals(child);
+            columns.forEach((col: ColumnData) => {
+              nodeTotals[col.key] += childTotals[col.key];
+            });
+          }
         });
       }
 
@@ -131,8 +167,24 @@ export const usePivotCalculations = ({
       return nodeTotals;
     };
 
-    // Uruchom obliczanie dla wszystkich głównych gałęzi
-    categoryTree.forEach((rootNode: Category) => calculateTotals(rootNode));
+    // Uruchom obliczanie dla wszystkich głównych gałęzi w finalnym drzewie
+    finalCategoryTree.forEach((rootNode: Category) => calculateTotals(rootNode));
+
+    // Oblicz sumy dla "Reszty kategorii"
+    const restCategoriesTotals: Record<string, number> = {};
+    columns.forEach(col => restCategoriesTotals[col.key] = 0);
+
+    if (starredOnly) {
+      categories.forEach(cat => {
+        if (!visibleCategoryIds.has(cat.id)) {
+          if (directValuesMap[cat.id]) {
+            columns.forEach(col => {
+              restCategoriesTotals[col.key] += (directValuesMap[cat.id][col.key] || 0);
+            });
+          }
+        }
+      });
+    }
 
     // 5. OBLICZ MONTHLY TOTALS
     const monthlyTotals: Record<string, number> = {};
@@ -292,12 +344,13 @@ export const usePivotCalculations = ({
     return {
       columns,
       totalValuesMap,
-      categoryTree,
+      categoryTree: finalCategoryTree,
       monthlyTotals,
       cumulativeTotals,
       accountBalances,
       balanceDiffs,
-      currentMonthKey
+      currentMonthKey,
+      restCategoriesTotals
     };
-  }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode]);
+  }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode, starredOnly]);
 };
