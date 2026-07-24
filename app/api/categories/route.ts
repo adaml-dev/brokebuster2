@@ -110,7 +110,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, parent, order, is_starred } = body;
+    const { id, name, parent, order, is_starred, is_archived } = body;
 
     if (!id) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
@@ -121,6 +121,7 @@ export async function PUT(request: NextRequest) {
     if (parent !== undefined) updateData.parent = parent || null;
     if (order !== undefined) updateData.order = order;
     if (is_starred !== undefined) updateData.is_starred = is_starred;
+    if (is_archived !== undefined) updateData.is_archived = is_archived;
 
     const { data, error } = await supabase
       .from("categories")

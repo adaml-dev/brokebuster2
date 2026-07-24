@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import {
     ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpDown,
     Pencil, Trash2, Unlink, CheckCircle2, CircleDashed, ChevronDown,
-    Maximize2, Minimize2, Plus, Star
+    Maximize2, Minimize2, Plus, Star, Archive
 } from "lucide-react";
 import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
@@ -54,6 +54,19 @@ export default function Dashboard2Client({
             router.refresh();
         } catch (error) {
             console.error("Error toggling star:", error);
+        }
+    };
+    const handleToggleArchive = async (catId: string, isArchived: boolean) => {
+        try {
+            const res = await fetch("/api/categories", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: catId, is_archived: isArchived }),
+            });
+            if (!res.ok) throw new Error("Failed to update category");
+            router.refresh();
+        } catch (error) {
+            console.error("Error toggling archive:", error);
         }
     };
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -661,6 +674,7 @@ export default function Dashboard2Client({
                                 plannedTotals={mergedPlannedTotals}
                                 doneTotals={mergedDoneTotals}
                                 onToggleStar={handleToggleStar}
+                                onToggleArchive={handleToggleArchive}
                             />
                         </div>
                     )}
@@ -963,6 +977,7 @@ function CategoryTreeList({
     plannedTotals = {},
     doneTotals = {},
     onToggleStar,
+    onToggleArchive,
 }: {
     categories: Category[],
     mergedTotals: Record<string, number>,
@@ -976,6 +991,7 @@ function CategoryTreeList({
     plannedTotals?: Record<string, number>,
     doneTotals?: Record<string, number>,
     onToggleStar: (catId: string, isStarred: boolean) => void,
+    onToggleArchive: (catId: string, isArchived: boolean) => void,
 }) {
     // If filter is active, we should always expand irrelevant of state, 
     // or just show the flat list of matches?
@@ -1033,7 +1049,6 @@ function CategoryTreeList({
                                     <ChevronRight className="h-3 w-3 text-muted-foreground" />
                                 )}
                             </div>
-
                             <span className="truncate flex-1 mr-2 select-none text-foreground flex items-center gap-1.5 min-w-0">
                                 <span className="truncate">{cat.name}</span>
                                 <button
@@ -1051,6 +1066,22 @@ function CategoryTreeList({
                                     title={cat.is_starred ? "Usuń gwiazdkę" : "Oznacz gwiazdką"}
                                 >
                                     <Star size={12} fill={cat.is_starred ? "currentColor" : "none"} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleArchive(cat.id, !cat.is_archived);
+                                    }}
+                                    className={cn(
+                                        "focus:outline-none transition-all duration-200 cursor-pointer shrink-0",
+                                        cat.is_archived
+                                            ? "text-purple-400 scale-110"
+                                            : "text-neutral-600 hover:text-purple-400 opacity-0 group-hover:opacity-100"
+                                    )}
+                                    title="Zarchiwizuj kategorię"
+                                >
+                                    <Archive size={12} fill={cat.is_archived ? "currentColor" : "none"} />
                                 </button>
                             </span>
 
@@ -1093,6 +1124,7 @@ function CategoryTreeList({
                                 plannedTotals={plannedTotals}
                                 doneTotals={doneTotals}
                                 onToggleStar={onToggleStar}
+                                onToggleArchive={onToggleArchive}
                             />
                         )}
                     </React.Fragment>

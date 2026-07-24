@@ -144,6 +144,20 @@ export default function DashboardClient({
     }
   };
 
+  const handleToggleArchive = async (catId: string, isArchived: boolean) => {
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: catId, is_archived: isArchived }),
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      router.refresh();
+    } catch (error) {
+      console.error("Error toggling archive:", error);
+    }
+  };
+
   const handleSort = (column: string) => {
     if (dashboardState.sortColumn === column) {
       dashboardState.setSortDirection(dashboardState.sortDirection === 'asc' ? 'desc' : 'asc');
@@ -264,6 +278,7 @@ export default function DashboardClient({
             onCellClick={dashboardState.handleCellClick}
             clickedCell={dashboardState.clickedCell}
             onToggleStar={handleToggleStar}
+            onToggleArchive={handleToggleArchive}
             starredOnly={starredOnly}
           />
         </CardContent>

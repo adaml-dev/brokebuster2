@@ -21,7 +21,7 @@ const createCategory = async (cat: { name: string; parent: string | null; order?
 };
 
 // Update category
-const updateCategory = async (cat: { id: string; name?: string; parent?: string | null; order?: number; is_starred?: boolean }) => {
+const updateCategory = async (cat: { id: string; name?: string; parent?: string | null; order?: number; is_starred?: boolean; is_archived?: boolean }) => {
     const res = await fetch("/api/categories", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

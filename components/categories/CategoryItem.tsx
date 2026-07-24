@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Category } from "@/lib/types/dashboard";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Plus, Pencil, Trash2, AlertTriangle, Star } from "lucide-react";
+import { GripVertical, Plus, Pencil, Trash2, AlertTriangle, Star, Archive } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useUpdateCategory } from "@/lib/hooks/useCategories";
 
 interface CategoryItemProps {
-    category: Category & { transaction_count?: number };
+    category: Category & { transaction_count?: number; is_archived?: boolean };
     depth: number;
     onAddSubcategory: (parentId: string, parentName: string, hasTransactions: boolean) => void;
     onEdit: (category: Category) => void;
@@ -55,6 +55,19 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
         }
     };
 
+    const handleToggleArchive = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+            await updateMutation.mutateAsync({
+                id: category.id,
+                is_archived: !category.is_archived,
+            });
+        } catch (err: any) {
+            console.error("Failed to toggle archive:", err);
+        }
+    };
+
     return (
         <div
             ref={setNodeRef}
@@ -70,7 +83,9 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                 </div>
                 <div className="flex flex-col">
                     <div className="font-medium text-sm flex items-center gap-2">
-                        {category.name}
+                        <span className={cn(category.is_archived && "text-neutral-500 line-through italic")}>
+                            {category.name}
+                        </span>
                         <button
                             type="button"
                             onClick={handleToggleStar}
@@ -83,6 +98,19 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                             title={category.is_starred ? "Remove star" : "Add star"}
                         >
                             <Star size={14} fill={category.is_starred ? "currentColor" : "none"} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleToggleArchive}
+                            className={cn(
+                                "focus:outline-none transition-all duration-200 cursor-pointer",
+                                category.is_archived
+                                    ? "text-purple-400 scale-110"
+                                    : "text-neutral-600 hover:text-purple-400 opacity-0 group-hover:opacity-100"
+                            )}
+                            title={category.is_archived ? "Przywróć z archiwum" : "Zarchiwizuj kategorię"}
+                        >
+                            <Archive size={14} fill={category.is_archived ? "currentColor" : "none"} />
                         </button>
                     </div>
                     {hasTransactions && (

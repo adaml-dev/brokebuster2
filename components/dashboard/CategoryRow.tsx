@@ -1,6 +1,6 @@
 import React from "react";
 import { TableRow, TableCell } from "@/components/ui/table";
-import { ChevronDown, ChevronRight, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, Star, Archive } from "lucide-react";
 import { Category, ColumnData, CellInfo } from "@/lib/types/dashboard";
 import { formatCurrency } from "@/lib/utils/dashboard";
 
@@ -20,6 +20,7 @@ interface CategoryRowProps {
   currentMonthKey: string;
   clickedCell: CellInfo | null;
   onToggleStar: (catId: string, isStarred: boolean) => void;
+  onToggleArchive: (catId: string, isArchived: boolean) => void;
 }
 
 export const CategoryRow: React.FC<CategoryRowProps> = ({
@@ -38,6 +39,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
   currentMonthKey,
   clickedCell,
   onToggleStar,
+  onToggleArchive,
 }) => {
   // Sprawdź czy kategoria powinna być widoczna
   if (!shouldShowCategory(category, categoryFilter, [], parentMatches)) {
@@ -95,6 +97,21 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
             title={category.is_starred ? "Usuń gwiazdkę" : "Oznacz gwiazdką"}
           >
             <Star size={12} fill={category.is_starred ? "currentColor" : "none"} />
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleArchive(category.id, !category.is_archived);
+            }}
+            className={`ml-1.5 focus:outline-none transition-all duration-200 cursor-pointer ${
+              category.is_archived
+                ? "text-purple-400 scale-110"
+                : "text-neutral-600 hover:text-purple-400 opacity-0 group-hover:opacity-100"
+            }`}
+            title="Zarchiwizuj kategorię"
+          >
+            <Archive size={12} fill={category.is_archived ? "currentColor" : "none"} />
           </button>
         </div>
       </TableCell>
@@ -163,6 +180,7 @@ export const CategoryRow: React.FC<CategoryRowProps> = ({
         currentMonthKey={currentMonthKey}
         clickedCell={clickedCell}
         onToggleStar={onToggleStar}
+        onToggleArchive={onToggleArchive}
       />
     ))
     : [];

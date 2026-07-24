@@ -100,11 +100,31 @@ export const usePivotCalculations = ({
       }
     });
 
+    // Cache archived category IDs
+    const archivedCategoryIds = new Set<string>();
+    
+    const isCategoryArchived = (catId: string): boolean => {
+      let current = categoryMap.get(catId);
+      while (current) {
+        if (current.is_archived) return true;
+        current = current.parent ? categoryMap.get(current.parent) : undefined;
+      }
+      return false;
+    };
+
+    categories.forEach(cat => {
+      if (isCategoryArchived(cat.id)) {
+        archivedCategoryIds.add(cat.id);
+      }
+    });
+
+    const activeCategories = categories.filter(cat => !archivedCategoryIds.has(cat.id));
+
     // 3. Budowa drzewa
-    const categoryTree = buildCategoryTree(categories);
+    const categoryTree = buildCategoryTree(activeCategories);
 
     const childrenMap = new Map<string, string[]>();
-    categories.forEach(c => {
+    activeCategories.forEach(c => {
       if (c.parent) {
         if (!childrenMap.has(c.parent)) childrenMap.set(c.parent, []);
         childrenMap.get(c.parent)!.push(c.id);
@@ -152,7 +172,7 @@ export const usePivotCalculations = ({
     // Flat tree logic for starredOnly (Case B: unstarred parents hidden)
     const buildFlatTree = (): Category[] => {
       // 1. Filter categories to only keep visible ones
-      const visibleCats = categories.filter(c => c.is_starred || hasStarredAncestor(c.id));
+      const visibleCats = activeCategories.filter(c => c.is_starred || hasStarredAncestor(c.id));
       
       // 2. Create new nodes
       const map = new Map<string, Category>();
@@ -240,21 +260,30 @@ export const usePivotCalculations = ({
     // Uruchom obliczanie dla wszystkich głównych gałęzi w finalnym drzewie
     finalCategoryTree.forEach((rootNode: Category) => calculateTotals(rootNode));
 
-    // Oblicz sumy dla "Reszty kategorii"
+    // Oblicz sumy dla "Reszty kategorii" oraz "Reszty transakcji" (zarchiwizowane)
     const restCategoriesTotals: Record<string, number> = {};
-    columns.forEach(col => restCategoriesTotals[col.key] = 0);
+    const restTransactionsTotals: Record<string, number> = {};
+    columns.forEach(col => {
+      restCategoriesTotals[col.key] = 0;
+      restTransactionsTotals[col.key] = 0;
+    });
 
-    if (starredOnly) {
-      categories.forEach(cat => {
-        if (!visibleCategoryIds.has(cat.id)) {
-          if (directValuesMap[cat.id]) {
-            columns.forEach(col => {
-              restCategoriesTotals[col.key] += (directValuesMap[cat.id][col.key] || 0);
-            });
-          }
+    categories.forEach(cat => {
+      const isArchived = archivedCategoryIds.has(cat.id);
+      if (isArchived) {
+        if (directValuesMap[cat.id]) {
+          columns.forEach(col => {
+            restTransactionsTotals[col.key] += (directValuesMap[cat.id][col.key] || 0);
+          });
         }
-      });
-    }
+      } else if (starredOnly && !visibleCategoryIds.has(cat.id)) {
+        if (directValuesMap[cat.id]) {
+          columns.forEach(col => {
+            restCategoriesTotals[col.key] += (directValuesMap[cat.id][col.key] || 0);
+          });
+        }
+      }
+    });
 
     // 5. OBLICZ MONTHLY TOTALS
     const monthlyTotals: Record<string, number> = {};
@@ -420,7 +449,8 @@ export const usePivotCalculations = ({
       accountBalances,
       balanceDiffs,
       currentMonthKey,
-      restCategoriesTotals
+      restCategoriesTotals,
+      restTransactionsTotals
     };
   }, [transactions, categories, monthOffset, selectedYear, accountStatements, calculationMode, starredOnly, hideUnstarredParents]);
 };
