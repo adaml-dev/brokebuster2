@@ -45,9 +45,6 @@ export default function CarryOverAssistant({
   const [sortColumn, setSortColumn] = useState<string>("date");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
-  // Stan toggle: traktuj bieżący mc jako zaległy
-  const [treatCurrentAsMissed, setTreatCurrentAsMissed] = useState(false);
-
   // Stan drugiego modalu (analiza transakcji Done)
   const [analysisCell, setAnalysisCell] = useState<{
     monthKey: string;
@@ -61,18 +58,13 @@ export default function CarryOverAssistant({
  
   // 1. Zidentyfikuj zaległe transakcje
   const missedTransactions = useMemo(() => {
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     return transactions.filter((t) => {
       if (t.transaction_type !== "planned" || t.is_realized) return false;
       const tDate = new Date(t.date);
       const tMonthKey = getMonthKey(tDate);
-      if (treatCurrentAsMissed) {
-        return tMonthKey <= currentMonthKey;
-      } else {
-        return tMonthKey < currentMonthKey || (tMonthKey === currentMonthKey && t.date < todayStr);
-      }
+      return tMonthKey <= currentMonthKey;
     });
-  }, [transactions, currentMonthKey, treatCurrentAsMissed, today]);
+  }, [transactions, currentMonthKey]);
 
   const onlyCurrentMonthMissed = useMemo(() => {
     if (missedTransactions.length === 0) return false;
@@ -148,7 +140,7 @@ export default function CarryOverAssistant({
     return missedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
   }, [missedTransactions]);
 
-  if (missedTransactions.length === 0 && !treatCurrentAsMissed) return null;
+  if (missedTransactions.length === 0) return null;
 
   // Pierwszy dzień bieżącego miesiąca do przeniesienia
   const currentMonthFirstDay = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
@@ -377,25 +369,17 @@ export default function CarryOverAssistant({
               </div>
             </DialogTitle>
             <DialogDescription className="text-neutral-400 text-xs">
-              Poniższe transakcje zaplanowano na ubiegłe miesiące (lub bieżący, po zaznaczeniu opcji poniżej), ale nie zostały oznaczone jako zrealizowane. Kliknij wiersz, aby przejrzeć rzeczywiste transakcje (Done).
+              Poniższe transakcje zaplanowano na ubiegłe miesiące lub bieżący, ale nie zostały oznaczone jako zrealizowane. Kliknij wiersz, aby przejrzeć rzeczywiste transakcje (Done).
             </DialogDescription>
           </DialogHeader>
 
           {/* Opcje filtrowania (Bieżący miesiąc) */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-2 mt-2 bg-neutral-950/60 p-3 rounded-lg border border-neutral-800 flex-shrink-0">
+          <div className="flex items-center justify-between gap-3 mb-2 mt-2 bg-neutral-950/60 p-3 rounded-lg border border-neutral-800 flex-shrink-0">
             <div className="text-xs text-neutral-400">
               Bieżący miesiąc systemowy: <span className="text-white font-bold">{currentMonthKey}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="treat-current-as-missed"
-                checked={treatCurrentAsMissed}
-                onCheckedChange={(checked) => setTreatCurrentAsMissed(!!checked)}
-                className="border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500"
-              />
-              <Label htmlFor="treat-current-as-missed" className="text-xs font-medium text-neutral-300 cursor-pointer select-none">
-                Pokaż wszystkie (również przyszłe) transakcje z bieżącego miesiąca
-              </Label>
+            <div className="text-xs text-neutral-500">
+              Pokazuje wszystkie niezrealizowane transakcje zaplanowane do końca {currentMonthKey}
             </div>
           </div>
 
