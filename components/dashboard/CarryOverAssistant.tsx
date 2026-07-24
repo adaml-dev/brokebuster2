@@ -140,6 +140,68 @@ export default function CarryOverAssistant({
     return missedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
   }, [missedTransactions]);
 
+  // Oblicz sumy Planned i Done dla danej kategorii i miesiąca
+  const categorySums = useMemo(() => {
+    const cache: Record<string, { planned: number; done: number }> = {};
+    const getCacheKey = (monthKey: string, categoryId: string) => `${monthKey}_${categoryId}`;
+
+    const uniqueKeys = new Set<string>();
+    const combos: Array<{ monthKey: string; categoryId: string }> = [];
+
+    missedTransactions.forEach((t) => {
+      const tDate = new Date(t.date);
+      const monthKey = getMonthKey(tDate);
+      const categoryId = t.category || "";
+      const key = getCacheKey(monthKey, categoryId);
+      if (!uniqueKeys.has(key)) {
+        uniqueKeys.add(key);
+        combos.push({ monthKey, categoryId });
+      }
+    });
+
+    combos.forEach(({ monthKey, categoryId }) => {
+      const hasCategory = categoryId && categories.some((c) => c.id === categoryId);
+
+      const matchedTransactions = transactions.filter((t) => {
+        const tDate = new Date(t.date);
+        const tMonthKey = getMonthKey(tDate);
+        if (tMonthKey !== monthKey) return false;
+
+        if (!hasCategory) {
+          const transCategoryName = (t.category || "").toString().trim().toLowerCase();
+          const tHasCategory = categories.some((c) =>
+            c.id === t.category ||
+            c.name.toLowerCase().trim() === transCategoryName
+          );
+          return !tHasCategory || !t.category || t.category === "";
+        } else {
+          const allCategoryIds = getAllCategoryIds(categoryId, categories);
+          const tCategory = t.category;
+          if (!tCategory) return false;
+
+          const matchedCategory = categories.find((c) =>
+            c.id === tCategory ||
+            c.name.toLowerCase().trim() === tCategory.trim().toLowerCase()
+          );
+
+          return matchedCategory && allCategoryIds.includes(matchedCategory.id);
+        }
+      });
+
+      const plannedSum = matchedTransactions
+        .filter((t) => t.transaction_type === "planned")
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      const doneSum = matchedTransactions
+        .filter((t) => t.transaction_type === "done" || t.source === "import" || t.is_archived === true)
+        .reduce((sum, t) => sum + Number(t.amount), 0);
+
+      cache[getCacheKey(monthKey, categoryId)] = { planned: plannedSum, done: doneSum };
+    });
+
+    return cache;
+  }, [missedTransactions, transactions, categories]);
+
   if (missedTransactions.length === 0) return null;
 
   // Pierwszy dzień bieżącego miesiąca do przeniesienia
@@ -393,81 +455,97 @@ export default function CarryOverAssistant({
                   <SortHeader column="payee" label="Odbiorca" />
                   <SortHeader column="description" label="Opis" />
                   <SortHeader column="amount" label="Kwota" />
+                  <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Planned</TableHead>
+                  <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Done</TableHead>
                   <TableHead className="text-xs text-center w-[200px]">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {sortedMissedTransactions.length > 0 ? (
-                  sortedMissedTransactions.map((t) => (
-                    <TableRow
-                      key={t.id}
-                      onClick={() => handleRowClick(t)}
-                      className="hover:bg-neutral-800/40 border-b border-neutral-850 cursor-pointer transition-colors group"
-                    >
-                      <TableCell className="text-xs text-neutral-400 whitespace-nowrap">{t.date}</TableCell>
-                      <TableCell className="text-xs text-neutral-300 truncate max-w-[150px]" title={getCategoryName(t.category)}>
-                        {getCategoryName(t.category)}
-                      </TableCell>
-                      <TableCell className="text-xs text-neutral-200 font-medium truncate max-w-[120px]" title={t.payee || ""}>
-                        {t.payee || "-"}
-                      </TableCell>
-                      <TableCell className="text-xs text-neutral-400 truncate max-w-[200px]" title={t.description || ""}>
-                        {t.description || "-"}
-                      </TableCell>
-                      <TableCell className={`text-xs text-right font-mono font-medium ${Number(t.amount) < 0 ? "text-red-400" : "text-green-400"}`}>
-                        {formatCurrency(Number(t.amount))}zł
-                      </TableCell>
-                      <TableCell className="py-2">
-                        <div className="flex items-center justify-end gap-1.5 pr-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                             onClick={(e) => {
-                              e.stopPropagation();
-                              handleRowClick(t);
-                            }}
-                            title="Analizuj powiązane transakcje rzeczywiste (Done)"
-                            className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
-                          >
-                            <Eye className="h-3.5 w-3.5 mr-1" /> Done
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={(e) => handleMoveToCurrentMonth(t, e)}
-                            disabled={isSubmitting}
-                            title="Przenieś na bieżący miesiąc"
-                            className="h-7 w-7 border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 text-neutral-300 hover:text-white"
-                          >
-                            <Calendar className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={(e) => handleMarkRealized(t, e)}
-                            disabled={isSubmitting}
-                            title="Oznacz jako zrealizowaną"
-                            className="h-7 w-7 border-green-900/30 hover:border-green-600 bg-green-950/20 text-green-400 hover:text-green-300"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="outline"
-                            onClick={(e) => handleDelete(t, e)}
-                            disabled={isSubmitting}
-                            title="Usuń transakcję"
-                            className="h-7 w-7 border-red-950 hover:border-red-600 bg-red-950/20 text-red-400 hover:text-red-300"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  sortedMissedTransactions.map((t) => {
+                    const tDate = new Date(t.date);
+                    const monthKey = getMonthKey(tDate);
+                    const categoryId = t.category || "";
+                    const key = `${monthKey}_${categoryId}`;
+                    const sums = categorySums[key] || { planned: 0, done: 0 };
+
+                    return (
+                      <TableRow
+                        key={t.id}
+                        onClick={() => handleRowClick(t)}
+                        className="hover:bg-neutral-800/40 border-b border-neutral-850 cursor-pointer transition-colors group"
+                      >
+                        <TableCell className="text-xs text-neutral-400 whitespace-nowrap">{t.date}</TableCell>
+                        <TableCell className="text-xs text-neutral-300 truncate max-w-[150px]" title={getCategoryName(t.category)}>
+                          {getCategoryName(t.category)}
+                        </TableCell>
+                        <TableCell className="text-xs text-neutral-200 font-medium truncate max-w-[120px]" title={t.payee || ""}>
+                          {t.payee || "-"}
+                        </TableCell>
+                        <TableCell className="text-xs text-neutral-400 truncate max-w-[200px]" title={t.description || ""}>
+                          {t.description || "-"}
+                        </TableCell>
+                        <TableCell className={`text-xs text-right font-mono font-medium ${Number(t.amount) < 0 ? "text-red-400" : "text-green-400"}`}>
+                          {formatCurrency(Number(t.amount))}zł
+                        </TableCell>
+                        <TableCell className={`text-xs text-right font-mono font-medium ${sums.planned < 0 ? "text-red-400" : "text-green-400"}`}>
+                          {formatCurrency(sums.planned)}zł
+                        </TableCell>
+                        <TableCell className={`text-xs text-right font-mono font-medium ${sums.done < 0 ? "text-red-400" : "text-green-400"}`}>
+                          {formatCurrency(sums.done)}zł
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <div className="flex items-center justify-end gap-1.5 pr-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRowClick(t);
+                              }}
+                              title="Analizuj powiązane transakcje rzeczywiste (Done)"
+                              className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" /> Done
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={(e) => handleMoveToCurrentMonth(t, e)}
+                              disabled={isSubmitting}
+                              title="Przenieś na bieżący miesiąc"
+                              className="h-7 w-7 border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 text-neutral-300 hover:text-white"
+                            >
+                              <Calendar className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={(e) => handleMarkRealized(t, e)}
+                              disabled={isSubmitting}
+                              title="Oznacz jako zrealizowaną"
+                              className="h-7 w-7 border-green-900/30 hover:border-green-600 bg-green-950/20 text-green-400 hover:text-green-300"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              onClick={(e) => handleDelete(t, e)}
+                              disabled={isSubmitting}
+                              title="Usuń transakcję"
+                              className="h-7 w-7 border-red-950 hover:border-red-600 bg-red-950/20 text-red-400 hover:text-red-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-neutral-500 py-10">
+                    <TableCell colSpan={8} className="text-center text-neutral-500 py-10">
                       Brak transakcji do wyświetlenia.
                     </TableCell>
                   </TableRow>
