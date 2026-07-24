@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const seriesIntervalMonths = transactionData.seriesIntervalMonths || 1;
 
     // Przygotuj bazowy obiekt transakcji
-    const allowedFields = ['transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category'];
+    const allowedFields = ['transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category', 'is_realized'];
     const baseData: any = {};
 
     for (const field of allowedFields) {

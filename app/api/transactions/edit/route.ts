@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Przygotuj obiekt do aktualizacji transakcji
-    const allowedFields = ['date', 'transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category'];
+    const allowedFields = ['date', 'transaction_type', 'amount', 'payee', 'description', 'origin', 'source', 'category', 'is_realized'];
     const updateData: any = {};
 
     if (updates) {

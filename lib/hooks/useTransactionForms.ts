@@ -30,6 +30,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
     origin: '',
     source: '',
     category: '',
+    is_realized: false,
     tagIds: [] as string[],
   });
 
@@ -75,6 +76,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
         origin: transaction.origin || '',
         source: transaction.source || '',
         category: transaction.category || '',
+        is_realized: transaction.is_realized || false,
         tagIds: transaction.tags?.map(t => t.id) || [],
       });
       setIsEditDialogOpen(true);

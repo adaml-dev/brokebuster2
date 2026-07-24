@@ -24,6 +24,7 @@ export interface Transaction {
   source?: string | null;
   category?: string | null;
   is_archived?: boolean;
+  is_realized?: boolean;
   created_at?: string;
   tags?: Tag[];
 }
@@ -123,6 +124,7 @@ export interface EditFormData {
   origin: string;
   source: string;
   category: string;
+  is_realized?: boolean;
   tagIds?: string[];
 }
 

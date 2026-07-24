@@ -22,6 +22,7 @@ import { PivotTable } from "@/components/dashboard/PivotTable";
 import { TransactionPanel } from "@/components/dashboard/TransactionPanel";
 import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
+import CarryOverAssistant from "@/components/dashboard/CarryOverAssistant";
 
 // Typy
 import { Transaction, Account, Category, WeightLog, Rule, AccountStatement, Tag } from "@/lib/types/dashboard";
@@ -161,8 +162,13 @@ export default function DashboardClient({
   // === RENDER ===
 
   return (
-    <div className="flex-1 p-2 md:p-4 overflow-hidden flex flex-col">
-      <Card className="bg-neutral-900 border-neutral-800 h-full flex flex-col overflow-hidden">
+    <div className="flex-1 p-2 md:p-4 overflow-y-auto flex flex-col">
+      <CarryOverAssistant
+        transactions={transactions}
+        categories={categories}
+        onRefresh={() => window.location.reload()}
+      />
+      <Card className="bg-neutral-900 border-neutral-800 flex-1 flex flex-col overflow-hidden">
         {/* Transaction Panel (optional - pokazuje się po kliknięciu komórki) */}
         <TransactionPanel
           clickedCell={dashboardState.clickedCell}
@@ -184,6 +190,7 @@ export default function DashboardClient({
           onUnlinkFromCategory={() => transactionActions.unlinkFromCategory(dashboardState.selectedTransactionIds)}
           onDeleteTransactions={() => transactionActions.deleteTransactions(dashboardState.selectedTransactionIds)}
           onEditTransactions={() => formActions.handleOpenEditDialog(dashboardState.selectedTransactionIds)}
+          onToggleRealized={(t) => transactionActions.editTransaction(t.id, { is_realized: !t.is_realized })}
           categories={categories}
           assignToCategoryId={dashboardState.assignToCategoryId}
           onAssignToCategoryIdChange={dashboardState.setAssignToCategoryId}

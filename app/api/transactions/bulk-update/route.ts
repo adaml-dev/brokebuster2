@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Prepare update data - only allowed fields
-        const allowedFields = ['date', 'transaction_type', 'amount', 'payee', 'description', 'origin', 'category'];
+        const allowedFields = ['date', 'transaction_type', 'amount', 'payee', 'description', 'origin', 'category', 'is_realized'];
         const updateData: any = {};
 
         for (const field of allowedFields) {

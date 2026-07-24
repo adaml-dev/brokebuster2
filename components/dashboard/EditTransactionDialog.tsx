@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TagMultiSelect } from '@/components/transactions/TagMultiSelect';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Category } from '@/lib/types/dashboard';
 import { getCategoryPath, isLeafCategory } from '@/lib/utils/dashboard';
 
@@ -64,6 +65,23 @@ export const EditTransactionDialog: React.FC<EditTransactionDialogProps> = ({
               <option value="done">Done</option>
             </select>
           </div>
+
+          {/* Is Realized Checkbox (only if planned) */}
+          {formData.transaction_type === 'planned' && (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <span className="text-right text-neutral-300">Realizacja</span>
+              <div className="col-span-3 flex items-center space-x-2">
+                <Checkbox
+                  id="edit-is_realized"
+                  checked={formData.is_realized || false}
+                  onCheckedChange={(checked) => onFormChange({ ...formData, is_realized: !!checked })}
+                />
+                <Label htmlFor="edit-is_realized" className="text-sm font-medium cursor-pointer text-neutral-400">
+                  Oznacz jako zrealizowaną (Planned Realized)
+                </Label>
+              </div>
+            </div>
+          )}
 
           {/* Amount */}
           <div className="grid grid-cols-4 items-center gap-4">

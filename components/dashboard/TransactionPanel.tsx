@@ -41,6 +41,7 @@ interface TransactionPanelProps {
   onUnlinkFromCategory: () => void;
   onDeleteTransactions: () => void;
   onEditTransactions: () => void;
+  onToggleRealized?: (transaction: Transaction) => void;
 
   // Category assignment
   categories: Category[];
@@ -76,6 +77,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
   onUnlinkFromCategory,
   onDeleteTransactions,
   onEditTransactions,
+  onToggleRealized,
   categories,
   assignToCategoryId,
   onAssignToCategoryIdChange,
@@ -268,9 +270,28 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
                         </TableCell>
                         <TableCell className="text-xs whitespace-nowrap">{formatDate(transaction.date)}</TableCell>
                         <TableCell className="text-xs">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${transaction.transaction_type === 'done' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
-                            {transaction.transaction_type}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${
+                              transaction.transaction_type === 'done'
+                                ? 'bg-green-900/30 text-green-400 border border-green-500/20'
+                                : (transaction.is_realized
+                                    ? 'bg-blue-900/30 text-blue-400 border border-blue-500/20'
+                                    : 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/20')
+                            }`}>
+                              {transaction.transaction_type === 'done'
+                                ? 'done'
+                                : (transaction.is_realized ? 'planned (zrealizowana)' : 'planned')}
+                            </span>
+                            {transaction.transaction_type === 'planned' && onToggleRealized && (
+                              <input
+                                type="checkbox"
+                                checked={transaction.is_realized || false}
+                                onChange={() => onToggleRealized(transaction)}
+                                title="Oznacz jako zrealizowaną"
+                                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-900 text-green-600 focus:ring-green-500 cursor-pointer"
+                              />
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs text-right">
                           <span className={Number(transaction.amount) < 0 ? 'text-red-400' : 'text-green-400'}>{formatCurrency(Number(transaction.amount))}</span>

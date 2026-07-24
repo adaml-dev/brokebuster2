@@ -22,6 +22,7 @@ import {
 import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 import { TagBadge } from "@/components/transactions/TagBadge";
+import CarryOverAssistant from "@/components/dashboard/CarryOverAssistant";
 
 interface Dashboard2ClientProps {
     transactions: Transaction[];
@@ -437,9 +438,15 @@ export default function Dashboard2Client({
     };
 
     return (
-        <div className="flex flex-col lg:flex-row h-full w-full gap-4 p-4 overflow-auto lg:overflow-hidden">
-            {/* LEFT PANEL - MONTHS (Mobile: full width, Desktop: 25%) */}
-            <Card className="w-full lg:w-[18%] flex flex-col min-h-[300px] lg:h-full">
+        <div className="flex flex-col h-full w-full p-4 overflow-y-auto">
+            <CarryOverAssistant
+                transactions={transactions}
+                categories={categories}
+                onRefresh={() => window.location.reload()}
+            />
+            <div className="flex flex-col lg:flex-row flex-1 gap-4 lg:overflow-hidden min-h-0">
+                {/* LEFT PANEL - MONTHS (Mobile: full width, Desktop: 25%) */}
+                <Card className="w-full lg:w-[18%] flex flex-col min-h-[300px] lg:h-full">
                 <CardHeader className="py-3">
                     <CardTitle className="flex flex-col gap-2">
                         <div className="flex justify-between items-center">
@@ -810,15 +817,31 @@ export default function Dashboard2Client({
                                     .slice(0, idx + 1)
                                     .reduce((sum, tx) => sum + tx.amount, 0);
                                 const isDone = t.transaction_type === 'done';
-                                const TypeIcon = isDone ? CheckCircle2 : CircleDashed;
+                                const isRealized = t.is_realized || false;
 
                                 return (
                                     <TableRow key={t.id} className="group">
                                         <TableCell className="px-2 py-2">
-                                            <div title={isDone ? "Zrealizowana" : "Planowana"}>
-                                                <TypeIcon
-                                                    className={cn("h-4 w-4", isDone ? "text-green-500" : "text-muted-foreground")}
-                                                />
+                                            <div className="flex items-center">
+                                                {isDone ? (
+                                                    <div title="Zrealizowana (Done)">
+                                                        <CheckCircle2
+                                                            className="h-4 w-4 text-green-500"
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => transactionActions.editTransaction(t.id, { is_realized: !isRealized })}
+                                                        title={isRealized ? "Zaplanowana, zrealizowana (Kliknij, aby cofnąć realizację)" : "Zaplanowana, niezrealizowana (Kliknij, aby oznaczyć jako zrealizowaną)"}
+                                                        className="focus:outline-none transition-transform hover:scale-110 active:scale-95"
+                                                    >
+                                                        {isRealized ? (
+                                                            <CheckCircle2 className="h-4 w-4 text-blue-400" />
+                                                        ) : (
+                                                            <CircleDashed className="h-4 w-4 text-muted-foreground hover:text-blue-400" />
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-xs text-muted-foreground whitespace-nowrap py-2 px-2">
@@ -906,6 +929,7 @@ export default function Dashboard2Client({
                 categories={categories}
                 uniqueOrigins={uniqueOrigins}
             />
+            </div>
         </div>
     );
 }

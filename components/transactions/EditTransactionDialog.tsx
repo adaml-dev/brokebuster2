@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Category, Transaction } from "@/lib/types/dashboard";
 import { isLeafCategory } from "@/lib/utils/dashboard";
 import { TagMultiSelect } from "./TagMultiSelect";
@@ -46,6 +47,7 @@ export default function EditTransactionDialog({
     category: "",
     origin: "",
     transaction_type: "done" as "done" | "planned",
+    is_realized: false,
     tagIds: [] as string[],
   });
 
@@ -59,6 +61,7 @@ export default function EditTransactionDialog({
         category: transaction.category || "",
         origin: transaction.origin || "",
         transaction_type: transaction.transaction_type,
+        is_realized: transaction.is_realized || false,
         tagIds: transaction.tags?.map(t => t.id) || [],
       });
     }
@@ -84,6 +87,7 @@ export default function EditTransactionDialog({
             category: formData.category === "none" ? null : (formData.category || null),
             origin: formData.origin,
             transaction_type: formData.transaction_type,
+            is_realized: formData.is_realized,
           },
           tagIds: formData.tagIds,
         }),
@@ -223,6 +227,21 @@ export default function EditTransactionDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {formData.transaction_type === "planned" && (
+            <div className="flex items-center space-x-2 pt-1">
+              <Checkbox
+                id="edit-is_realized"
+                checked={formData.is_realized}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_realized: !!checked })
+                }
+              />
+              <Label htmlFor="edit-is_realized" className="text-sm font-medium cursor-pointer">
+                Oznacz jako zrealizowaną (Planned Realized)
+              </Label>
+            </div>
+          )}
 
           <div className="pt-2">
             <TagMultiSelect

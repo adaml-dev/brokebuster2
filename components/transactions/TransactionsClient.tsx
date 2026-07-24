@@ -156,6 +156,31 @@ export default function TransactionsClient() {
     },
   });
 
+  const toggleRealizedMutation = useMutation({
+    mutationFn: async ({ transactionId, isRealized }: { transactionId: string; isRealized: boolean }) => {
+      const res = await fetch("/api/transactions/edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionId,
+          updates: { is_realized: isRealized },
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle realized status");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    },
+  });
+
+  const handleToggleRealized = (t: Transaction) => {
+    toggleRealizedMutation.mutate({
+      transactionId: t.id,
+      isRealized: !t.is_realized,
+    });
+  };
+
   // ===== HELPER FUNCTIONS =====
   const getCategoryName = (categoryId: string | null | undefined) => {
     if (!categoryId) return "-";
@@ -831,9 +856,20 @@ export default function TransactionsClient() {
                       </Badge>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
-                      <Badge variant={getTypeBadgeVariant(t.transaction_type)}>
-                        {t.transaction_type === "done" ? "Done" : "Planned"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={t.transaction_type === "done" ? "success" : (t.is_realized ? "info" : "warning")}>
+                          {t.transaction_type === "done" ? "Done" : (t.is_realized ? "Planned (Zrealizowana)" : "Planned")}
+                        </Badge>
+                        {t.transaction_type === "planned" && (
+                          <input
+                            type="checkbox"
+                            checked={t.is_realized || false}
+                            onChange={() => handleToggleRealized(t)}
+                            title="Oznacz jako zrealizowaną"
+                            className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-850 text-green-600 focus:ring-green-500 cursor-pointer"
+                          />
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className={`text-right font-medium whitespace-nowrap ${(t.amount || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
                       {(t.amount || 0).toFixed(2)}
