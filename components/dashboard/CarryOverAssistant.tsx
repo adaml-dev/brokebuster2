@@ -423,7 +423,7 @@ export default function CarryOverAssistant({
 
       {/* Okno zarządzania zaległościami */}
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-5xl bg-neutral-900 border-neutral-800 text-white flex flex-col max-h-[85vh] overflow-hidden">
+        <DialogContent className="max-w-6xl bg-neutral-900 border-neutral-800 text-white flex flex-col max-h-[85vh] overflow-hidden">
           <DialogHeader className="pb-2 border-b border-neutral-800 flex-shrink-0">
             <DialogTitle className="text-lg font-bold flex items-center justify-between gap-2 text-amber-400">
               <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ export default function CarryOverAssistant({
                   <SortHeader column="amount" label="Kwota" />
                   <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Planned</TableHead>
                   <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Done</TableHead>
-                  <TableHead className="text-xs text-center w-[200px]">Akcje</TableHead>
+                  <TableHead className="text-xs text-center w-[200px] min-w-[200px]">Akcje</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -494,7 +494,7 @@ export default function CarryOverAssistant({
                         <TableCell className={`text-xs text-right font-mono font-medium ${sums.done < 0 ? "text-red-400" : "text-green-400"}`}>
                           {formatCurrency(sums.done)}zł
                         </TableCell>
-                        <TableCell className="py-2">
+                        <TableCell className="py-2 w-[200px] min-w-[200px] whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5 pr-2">
                             <Button
                               size="sm"
