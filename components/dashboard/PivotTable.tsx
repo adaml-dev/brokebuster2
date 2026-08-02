@@ -40,6 +40,13 @@ export const PivotTable: React.FC<PivotTableProps> = ({
   onToggleArchive,
   starredOnly = false,
 }) => {
+  const hasAnyRestTransactions = pivotData.columns.some(
+    col => (pivotData.restTransactionsTotals?.[col.key] || 0) !== 0
+  );
+  const hasAnyRestCategories = pivotData.columns.some(
+    col => (pivotData.restCategoriesTotals?.[col.key] || 0) !== 0
+  );
+
   return (
     <Table>
       <TableHeader className="bg-neutral-950 sticky top-0 z-20 shadow-md">
@@ -96,7 +103,7 @@ export const PivotTable: React.FC<PivotTableProps> = ({
             />
           );
         })}
-        {starredOnly && (
+        {starredOnly && hasAnyRestCategories && (
           <TableRow className={`border-b border-neutral-800 group transition-colors ${clickedCell?.categoryId === "__REST_CATEGORIES__" ? "bg-blue-900/30" : "hover:bg-neutral-900/50"}`}>
             <TableCell className={`font-semibold sticky left-0 z-10 border-r border-neutral-800 min-w-[200px] py-2.5 pl-[10px] ${clickedCell?.categoryId === "__REST_CATEGORIES__" ? "bg-[#111827] text-blue-300 font-bold" : "bg-neutral-950 text-neutral-300"}`}>
               Reszta kategorii
@@ -139,47 +146,49 @@ export const PivotTable: React.FC<PivotTableProps> = ({
             })}
           </TableRow>
         )}
-        <TableRow className={`border-b border-neutral-800 group transition-colors ${clickedCell?.categoryId === "__REST_TRANSACTIONS__" ? "bg-blue-900/30" : "hover:bg-neutral-900/50"}`}>
-          <TableCell className={`font-semibold sticky left-0 z-10 border-r border-neutral-800 min-w-[200px] py-2.5 pl-[10px] ${clickedCell?.categoryId === "__REST_TRANSACTIONS__" ? "bg-[#111827] text-blue-300 font-bold" : "bg-neutral-950 text-neutral-300"}`}>
-            Reszta transakcji
-          </TableCell>
-          {pivotData.columns.map(col => {
-            const isRowSelected = clickedCell?.categoryId === "__REST_TRANSACTIONS__";
-            const val = pivotData.restTransactionsTotals?.[col.key] || 0;
-            const isCurrent = col.key === pivotData.currentMonthKey;
-            const isColumnSelected = clickedCell?.monthKey === col.key;
-            const isCellSelected = isRowSelected && isColumnSelected;
+        {hasAnyRestTransactions && (
+          <TableRow className={`border-b border-neutral-800 group transition-colors ${clickedCell?.categoryId === "__REST_TRANSACTIONS__" ? "bg-blue-900/30" : "hover:bg-neutral-900/50"}`}>
+            <TableCell className={`font-semibold sticky left-0 z-10 border-r border-neutral-800 min-w-[200px] py-2.5 pl-[10px] ${clickedCell?.categoryId === "__REST_TRANSACTIONS__" ? "bg-[#111827] text-blue-300 font-bold" : "bg-neutral-950 text-neutral-300"}`}>
+              Reszta transakcji
+            </TableCell>
+            {pivotData.columns.map(col => {
+              const isRowSelected = clickedCell?.categoryId === "__REST_TRANSACTIONS__";
+              const val = pivotData.restTransactionsTotals?.[col.key] || 0;
+              const isCurrent = col.key === pivotData.currentMonthKey;
+              const isColumnSelected = clickedCell?.monthKey === col.key;
+              const isCellSelected = isRowSelected && isColumnSelected;
 
-            let cellClass = "text-right p-2 min-w-[80px] text-xs cursor-pointer transition-all duration-200 ";
-            if (isCellSelected) {
-              cellClass += "bg-blue-600/40 border-2 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] z-10 scale-105 font-bold text-white relative ";
-            } else if (isColumnSelected) {
-              cellClass += "bg-blue-900/40 border-x border-blue-500/30 ";
-            } else if (isRowSelected) {
-              cellClass += "border-y border-blue-500/20 ";
-            } else if (isCurrent) {
-              cellClass += "bg-blue-900/10 border-x border-blue-500/10 shadow-[inset_0_0_10px_rgba(59,130,246,0.05)] ";
-            } else {
-              cellClass += "hover:bg-blue-900/30 ";
-            }
+              let cellClass = "text-right p-2 min-w-[80px] text-xs cursor-pointer transition-all duration-200 ";
+              if (isCellSelected) {
+                cellClass += "bg-blue-600/40 border-2 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)] z-10 scale-105 font-bold text-white relative ";
+              } else if (isColumnSelected) {
+                cellClass += "bg-blue-900/40 border-x border-blue-500/30 ";
+              } else if (isRowSelected) {
+                cellClass += "border-y border-blue-500/20 ";
+              } else if (isCurrent) {
+                cellClass += "bg-blue-900/10 border-x border-blue-500/10 shadow-[inset_0_0_10px_rgba(59,130,246,0.05)] ";
+              } else {
+                cellClass += "hover:bg-blue-900/30 ";
+              }
 
-            return (
-              <TableCell
-                key={col.key}
-                className={cellClass}
-                onClick={() => onCellClick("__REST_TRANSACTIONS__", col.key, col.label)}
-              >
-                {val !== 0 ? (
-                  <span className={val < 0 ? "text-red-400 font-semibold" : "text-green-400 font-semibold"}>
-                    {formatCurrency(val)}
-                  </span>
-                ) : (
-                  <span className={isCellSelected ? "text-blue-200" : "text-neutral-600"}>-</span>
-                )}
-              </TableCell>
-            );
-          })}
-        </TableRow>
+              return (
+                <TableCell
+                  key={col.key}
+                  className={cellClass}
+                  onClick={() => onCellClick("__REST_TRANSACTIONS__", col.key, col.label)}
+                >
+                  {val !== 0 ? (
+                    <span className={val < 0 ? "text-red-400 font-semibold" : "text-green-400 font-semibold"}>
+                      {formatCurrency(val)}
+                    </span>
+                  ) : (
+                    <span className={isCellSelected ? "text-blue-200" : "text-neutral-600"}>-</span>
+                  )}
+                </TableCell>
+              );
+            })}
+          </TableRow>
+        )}
       </TableBody>
       <TableFooter className="bg-neutral-900 border-t-2 border-neutral-700 sticky bottom-0 z-20">
         {/* Row 1: Bilans Miesięczny (Monthly Totals) */}
