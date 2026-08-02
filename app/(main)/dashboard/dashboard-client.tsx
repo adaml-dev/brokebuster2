@@ -275,7 +275,9 @@ export default function DashboardClient({
             expandedCats={dashboardState.expandedCats}
             categoryFilter={dashboardState.categoryFilter}
             onToggleCategory={dashboardState.toggleCategory}
-            onCellClick={dashboardState.handleCellClick}
+            onCellClick={(categoryId, monthKey, monthLabel) =>
+              dashboardState.handleCellClick(categoryId, monthKey, monthLabel, starredOnly, hideUnstarredParents)
+            }
             clickedCell={dashboardState.clickedCell}
             onToggleStar={handleToggleStar}
             onToggleArchive={handleToggleArchive}

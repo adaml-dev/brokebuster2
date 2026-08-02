@@ -77,19 +77,143 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
   const stateLoadedRef = useRef(false);
 
   // Funkcja do kliknięcia komórki
-  const handleCellClick = useCallback((categoryId: string, monthKey: string, monthLabel: string) => {
-    const allCategoryIds = getAllCategoryIds(categoryId, categories);
+  const handleCellClick = useCallback((
+    categoryId: string,
+    monthKey: string,
+    monthLabel: string,
+    starredOnly?: boolean,
+    hideUnstarredParents?: boolean
+  ) => {
+    const isStarredOnly = starredOnly !== undefined ? starredOnly : (categoryId === "__REST_CATEGORIES__");
+    const isHideUnstarredParents = hideUnstarredParents !== undefined ? hideUnstarredParents : false;
+
+    const categoryMap = new Map(categories.map(c => [c.id, c]));
+
+    const isCategoryArchived = (catId: string): boolean => {
+      let current = categoryMap.get(catId);
+      while (current) {
+        if (current.is_archived) return true;
+        current = current.parent ? categoryMap.get(current.parent) : undefined;
+      }
+      return false;
+    };
+
+    // Cache list of archived and active category IDs
+    const archivedCategoryIds = new Set<string>();
+    categories.forEach(cat => {
+      if (isCategoryArchived(cat.id)) {
+        archivedCategoryIds.add(cat.id);
+      }
+    });
+
+    const activeCategories = categories.filter(cat => !archivedCategoryIds.has(cat.id));
+
+    // For "__REST_CATEGORIES__", build visible Category list if starredOnly is true
+    const visibleCategoryIds = new Set<string>();
+    if (isStarredOnly) {
+      const childrenMap = new Map<string, string[]>();
+      activeCategories.forEach(c => {
+        if (c.parent) {
+          if (!childrenMap.has(c.parent)) childrenMap.set(c.parent, []);
+          childrenMap.get(c.parent)!.push(c.id);
+        }
+      });
+
+      const hasStarredAncestor = (catId: string): boolean => {
+        let current = categoryMap.get(catId);
+        while (current) {
+          if (current.is_starred) return true;
+          current = current.parent ? categoryMap.get(current.parent) : undefined;
+        }
+        return false;
+      };
+
+      const hasStarredDescendant = (catId: string): boolean => {
+        const children = childrenMap.get(catId) || [];
+        for (const childId of children) {
+          const child = categoryMap.get(childId);
+          if (child && (child.is_starred || hasStarredDescendant(childId))) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      const pruneTree = (nodes: Category[], parentStarred = false): Category[] => {
+        return nodes
+          .map(node => {
+            const isNodeStarred = !!node.is_starred || parentStarred;
+            const keepNode = isNodeStarred || hasStarredDescendant(node.id);
+            if (keepNode) {
+              const prunedChildren = node.children ? pruneTree(node.children, isNodeStarred) : [];
+              return {
+                ...node,
+                children: prunedChildren
+              } as Category;
+            }
+            return null;
+          })
+          .filter((node): node is Category => node !== null);
+      };
+
+      if (isHideUnstarredParents) {
+        const visibleCats = activeCategories.filter(c => c.is_starred || hasStarredAncestor(c.id));
+        visibleCats.forEach(c => visibleCategoryIds.add(c.id));
+      } else {
+        // build complete categoryTree first
+        const buildCategoryTree = (cats: Category[]): Category[] => {
+          const map = new Map<string, Category>();
+          cats.forEach(c => map.set(c.id, { ...c, children: [] }));
+          const roots: Category[] = [];
+          cats.forEach(c => {
+            const node = map.get(c.id)!;
+            if (c.parent && map.has(c.parent)) {
+              map.get(c.parent)!.children!.push(node);
+            } else {
+              roots.push(node);
+            }
+          });
+          return roots;
+        };
+
+        const categoryTree = buildCategoryTree(activeCategories);
+        const pruned = pruneTree(categoryTree);
+        const collectIds = (nodes: Category[]) => {
+          nodes.forEach(n => {
+            visibleCategoryIds.add(n.id);
+            if (n.children) collectIds(n.children);
+          });
+        };
+        collectIds(pruned);
+      }
+    }
+
+    const allCategoryIds = categoryId !== "__REST_TRANSACTIONS__" && categoryId !== "__REST_CATEGORIES__"
+      ? getAllCategoryIds(categoryId, categories)
+      : [];
 
     const categoryTransactions = transactions.filter(t => {
+      const tMonthKey = getMonthKey(safeDate(t.date));
+      if (tMonthKey !== monthKey) return false;
+
       const transCategoryName = (t.category || "").toString().trim().toLowerCase();
       const matchedCategory = categories.find(c =>
         c.id === t.category ||
         c.name.toLowerCase().trim() === transCategoryName
       );
 
-      if (matchedCategory && allCategoryIds.includes(matchedCategory.id)) {
-        const tMonthKey = getMonthKey(safeDate(t.date));
-        return tMonthKey === monthKey;
+      if (!matchedCategory) return false;
+
+      if (categoryId === "__REST_TRANSACTIONS__") {
+        return archivedCategoryIds.has(matchedCategory.id);
+      }
+
+      if (categoryId === "__REST_CATEGORIES__") {
+        return activeCategories.some(c => c.id === matchedCategory.id) && !visibleCategoryIds.has(matchedCategory.id);
+      }
+
+      if (allCategoryIds.includes(matchedCategory.id)) {
+        return true;
       }
       return false;
     });
@@ -104,10 +228,17 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     const doneSum = doneTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
     const plannedSum = plannedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
 
+    let categoryPath = ["Reszta transakcji"];
+    if (categoryId === "__REST_CATEGORIES__") {
+      categoryPath = ["Reszta kategorii"];
+    } else if (categoryId !== "__REST_TRANSACTIONS__") {
+      categoryPath = getCategoryPath(categoryId, categories);
+    }
+
     setClickedCell({
       monthKey,
       monthLabel,
-      categoryPath: getCategoryPath(categoryId, categories),
+      categoryPath,
       categoryId,
       doneCount: doneTransactions.length,
       plannedCount: plannedTransactions.length,
