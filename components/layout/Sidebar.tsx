@@ -44,6 +44,7 @@ export function Sidebar({ userEmail, onMenuClose }: SidebarProps) {
       items: [
         settings.showDashboard1 && { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         settings.showDashboard2 && { href: "/dashboard2", label: "Dashboard 2", icon: LayoutDashboard },
+        { href: "/dashboard3", label: "Dashboard 3", icon: LayoutDashboard },
         { href: "/analizy", label: "Analizy", icon: BarChart3 },
       ].filter(Boolean) as { href: string; label: string; icon: any }[],
     },

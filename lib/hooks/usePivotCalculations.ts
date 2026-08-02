@@ -21,6 +21,7 @@ interface UsePivotCalculationsProps {
   calculationMode: 'mixed' | 'planned' | 'done' | 'diff';
   starredOnly?: boolean;
   hideUnstarredParents?: boolean;
+  numMonths?: number;
 }
 
 export const usePivotCalculations = ({
@@ -32,6 +33,7 @@ export const usePivotCalculations = ({
   calculationMode,
   starredOnly = false,
   hideUnstarredParents = false,
+  numMonths = 12,
 }: UsePivotCalculationsProps): PivotData => {
   return useMemo(() => {
     const today = new Date();
@@ -54,9 +56,9 @@ export const usePivotCalculations = ({
       return categoryNameMap.get(name);
     };
 
-    // 1. Kolumny - 12 miesięcy
+    // 1. Kolumny - numMonths miesięcy
     const columns: ColumnData[] = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < numMonths; i++) {
       const d = new Date(selectedYear, 0 + monthOffset + i, 1);
       columns.push({
         date: d,

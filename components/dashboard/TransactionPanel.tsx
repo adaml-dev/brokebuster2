@@ -7,7 +7,7 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Minimize2, Maximize2, Plus, ArrowDownToLine } from "lucide-react";
+import { Minimize2, Maximize2, Plus, ArrowDownToLine, Wallet } from "lucide-react";
 import { CellInfo, Transaction, Category, Tag } from "@/lib/types/dashboard";
 import { formatCurrency, formatDate, getCategoryPath } from "@/lib/utils/dashboard";
 import { TagBadge } from "../transactions/TagBadge";
@@ -18,6 +18,7 @@ interface TransactionPanelProps {
   isCellInfoExpanded: boolean;
   onToggleExpand: () => void;
   onOpenManualEntry: () => void;
+  layout?: 'panel' | 'side';
 
   // Transaction display
   showUnassigned: boolean;
@@ -62,6 +63,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
   isCellInfoExpanded,
   onToggleExpand,
   onOpenManualEntry,
+  layout = 'panel',
   showUnassigned,
   onToggleUnassigned,
   filteredTransactions,
@@ -88,6 +90,265 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
   selectedTags,
   onSelectedTagsChange,
 }) => {
+  const renderPanelContent = () => {
+    return (
+      <div className="flex-grow flex flex-col min-h-0">
+        {/* Toggle i filtr */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
+          <div className="flex items-center gap-1 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
+            <button
+              onClick={onToggleUnassigned}
+              className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${!showUnassigned ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'
+                }`}
+            >
+              Przypisane
+            </button>
+            <button
+              onClick={onToggleUnassigned}
+              className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${showUnassigned ? 'bg-orange-600 text-white' : 'text-neutral-400 hover:text-white'
+                }`}
+            >
+              Nieprzypisane
+            </button>
+          </div>
+
+          <input
+            type="text"
+            placeholder="Filtruj..."
+            value={transactionFilter}
+            onChange={(e) => onTransactionFilterChange(e.target.value)}
+            className="flex-1 h-9 px-2 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Tag Filter bar */}
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-2 py-1 bg-neutral-950/50 rounded-md border border-neutral-800 mb-3">
+            {tags.map(tag => (
+              <button
+                key={tag.id}
+                onClick={() => {
+                  if (selectedTags.includes(tag.id)) {
+                    onSelectedTagsChange(selectedTags.filter(id => id !== tag.id));
+                  } else {
+                    onSelectedTagsChange([...selectedTags, tag.id]);
+                  }
+                }}
+                className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                  selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
+                )}
+                style={{
+                  backgroundColor: tag.color + '20',
+                  color: tag.color,
+                  border: `1px solid ${tag.color}40`
+                }}
+              >
+                {tag.name}
+              </button>
+            ))}
+            {selectedTags.length > 0 && (
+              <button
+                onClick={() => onSelectedTagsChange([])}
+                className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
+              >
+                Wyczyść
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Panel przypisywania (unassigned) */}
+        {showUnassigned && selectedTransactionIds.size > 0 && (
+          <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-orange-500/50">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-neutral-300">Zaznaczono: <span className="font-bold text-orange-400">{selectedTransactionIds.size}</span></span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                placeholder="Szukaj kategorii..."
+                value={categorySearchFilter}
+                onChange={(e) => onCategorySearchFilterChange(e.target.value)}
+                className="h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full touch-manipulation"
+              />
+              <div className="flex gap-2">
+                <select
+                  value={assignToCategoryId}
+                  onChange={(e) => onAssignToCategoryIdChange(e.target.value)}
+                  className="flex-1 h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 touch-manipulation"
+                >
+                  <option value="">Wybierz...</option>
+                  {filteredCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {getCategoryPath(cat.id, categories).join(' → ')}
+                    </option>
+                  ))}
+                </select>
+                <Button onClick={onAssignToCategory} disabled={!assignToCategoryId} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation h-9 px-3 text-xs">
+                  Przypisz
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Panel akcji (assigned) */}
+        {!showUnassigned && selectedTransactionIds.size > 0 && (
+          <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-blue-500/50">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-neutral-300">Zaznaczono: <span className="font-bold text-blue-400">{selectedTransactionIds.size}</span></span>
+            </div>
+            <div className="flex items-stretch gap-2">
+              <Button onClick={onUnlinkFromCategory} size="sm" className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation h-9 px-2 text-xs">Unlink</Button>
+              <Button onClick={onDeleteTransactions} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white touch-manipulation h-9 px-2 text-xs">Delete</Button>
+              <Button onClick={onEditTransactions} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white touch-manipulation h-9 px-2 text-xs">Edit</Button>
+            </div>
+          </div>
+        )}
+
+        {/* Tabela transakcji */}
+        <div className="overflow-auto flex-1 border border-neutral-800 rounded">
+          <Table>
+            <TableHeader className="bg-neutral-950 sticky top-0 z-10">
+              <TableRow className="border-b border-neutral-700">
+                <TableHead className="w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={filteredTransactions.length > 0 && selectedTransactionIds.size === filteredTransactions.length}
+                    onChange={onToggleAllTransactions}
+                    className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${showUnassigned ? 'text-orange-600 focus:ring-orange-500' : 'text-blue-600 focus:ring-blue-500'}`}
+                  />
+                </TableHead>
+                {[
+                  { key: 'date', label: 'Data' },
+                  { key: 'transaction_type', label: 'Typ' },
+                  { key: 'amount', label: 'Kwota' },
+                  { key: 'payee', label: 'Odbiorca' },
+                  { key: 'description', label: 'Opis' },
+                  { key: 'origin', label: 'Pochodzenie' },
+                  { key: 'source', label: 'Źródło' },
+                ].map(col => (
+                  <TableHead key={col.key} className="text-xs cursor-pointer hover:bg-neutral-800 transition-colors whitespace-nowrap" onClick={() => onSort(col.key)}>
+                    <div className="flex items-center gap-1">
+                      {col.label}
+                      {sortColumn === col.key && <span className="text-blue-400">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
+                    </div>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTransactions.length > 0 ? (
+                filteredTransactions.map((transaction, idx) => (
+                  <TableRow key={transaction.id || idx} className="hover:bg-neutral-800/50 border-b border-neutral-800">
+                    <TableCell className="w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedTransactionIds.has(transaction.id)}
+                        onChange={() => onToggleTransaction(transaction.id)}
+                        className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${showUnassigned ? 'text-orange-600 focus:ring-orange-500' : 'text-blue-600 focus:ring-blue-500'}`}
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs whitespace-nowrap">{formatDate(transaction.date)}</TableCell>
+                    <TableCell className="text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${
+                          transaction.transaction_type === 'done'
+                            ? 'bg-green-900/30 text-green-400 border border-green-500/20'
+                            : (transaction.is_realized
+                                ? 'bg-blue-900/30 text-blue-400 border border-blue-500/20'
+                                : 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/20')
+                        }`}>
+                          {transaction.transaction_type === 'done'
+                            ? 'done'
+                            : (transaction.is_realized ? 'planned (zrealizowana)' : 'planned')}
+                        </span>
+                        {transaction.transaction_type === 'planned' && onToggleRealized && (
+                          <input
+                            type="checkbox"
+                            checked={transaction.is_realized || false}
+                            onChange={() => onToggleRealized(transaction)}
+                            title="Oznacz jako zrealizowaną"
+                            className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-900 text-green-600 focus:ring-green-500 cursor-pointer"
+                          />
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-right">
+                      <span className={Number(transaction.amount) < 0 ? 'text-red-400' : 'text-green-400'}>{formatCurrency(Number(transaction.amount))}</span>
+                    </TableCell>
+                    <TableCell className="text-xs text-neutral-300 max-w-[200px] truncate">{transaction.payee || '-'}</TableCell>
+                    <TableCell className="text-xs text-neutral-400 max-w-[250px] truncate">
+                      <div className="flex flex-col gap-1">
+                        <span>{transaction.description || '-'}</span>
+                        {transaction.tags && transaction.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {transaction.tags.map(tag => (
+                              <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs text-neutral-300 max-w-[150px] truncate">{transaction.origin || '-'}</TableCell>
+                    <TableCell className="text-xs text-neutral-500">{transaction.source || '-'}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-neutral-500 py-8">
+                    {showUnassigned ? 'Brak nieprzypisanych transakcji w tym miesiącu' : 'Brak transakcji do wyświetlenia'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
+
+  if (layout === 'side') {
+    if (!clickedCell) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-neutral-500 bg-neutral-900 border border-neutral-800 rounded-lg p-6 text-center min-h-[300px]">
+          <div className="w-12 h-12 rounded-full bg-neutral-800/50 flex items-center justify-center mb-3">
+            <Wallet className="w-6 h-6 text-neutral-500" />
+          </div>
+          <p className="text-sm font-semibold text-neutral-400">Wybierz komórkę</p>
+          <p className="text-xs text-neutral-600 mt-1 max-w-[240px]">
+            Kliknij kwotę dla wybranej kategorii i miesiąca po lewej stronie, aby wyświetlić szczegóły transakcji.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col h-full bg-neutral-900 border border-neutral-800 rounded-lg overflow-hidden w-full">
+        <div className="p-4 flex flex-col h-full overflow-hidden min-h-[400px]">
+          {/* Nagłówek */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-neutral-800 pb-3 mb-3">
+            <div>
+              <p className="text-sm text-white font-bold flex items-center gap-1.5">
+                <span className="text-neutral-500">{clickedCell.monthKey}</span>
+                <span className="text-neutral-500">/</span>
+                <span className="text-blue-400">{clickedCell.categoryPath.join(' → ')}</span>
+              </p>
+            </div>
+            <div className="text-xs flex gap-3 items-center whitespace-nowrap">
+              <span className="text-green-400 font-semibold">{formatCurrency(clickedCell.doneSum)}zł Done ({clickedCell.doneCount})</span>
+              <span className="text-neutral-500">|</span>
+              <span className="text-yellow-400 font-semibold">{formatCurrency(clickedCell.plannedSum)}zł Planned ({clickedCell.plannedCount})</span>
+            </div>
+          </div>
+
+          {renderPanelContent()}
+        </div>
+      </div>
+    );
+  }
+
   if (!clickedCell) return null;
 
   return (
@@ -111,218 +372,7 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
         {/* Rozszerzona sekcja */}
         {isCellInfoExpanded && (
           <div className="mt-4 p-3 bg-neutral-900 rounded-lg border border-neutral-800 overflow-hidden flex flex-col" style={{ maxHeight: 'calc(65vh - 120px)' }}>
-            {/* Toggle i filtr */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-3">
-              <div className="flex items-center gap-1 bg-neutral-950 rounded-lg p-1 border border-neutral-700">
-                <button
-                  onClick={onToggleUnassigned}
-                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${!showUnassigned ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-white'
-                    }`}
-                >
-                  Przypisane
-                </button>
-                <button
-                  onClick={onToggleUnassigned}
-                  className={`px-2 py-1.5 rounded text-xs font-medium transition-all touch-manipulation flex-1 sm:flex-none ${showUnassigned ? 'bg-orange-600 text-white' : 'text-neutral-400 hover:text-white'
-                    }`}
-                >
-                  Nieprzypisane
-                </button>
-              </div>
-
-              <input
-                type="text"
-                placeholder="Filtruj..."
-                value={transactionFilter}
-                onChange={(e) => onTransactionFilterChange(e.target.value)}
-                className="flex-1 h-9 px-2 py-1 bg-neutral-950 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Tag Filter bar */}
-            {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 px-2 py-1 bg-neutral-950/50 rounded-md border border-neutral-800 mb-3">
-                {tags.map(tag => (
-                  <button
-                    key={tag.id}
-                    onClick={() => {
-                      if (selectedTags.includes(tag.id)) {
-                        onSelectedTagsChange(selectedTags.filter(id => id !== tag.id));
-                      } else {
-                        onSelectedTagsChange([...selectedTags, tag.id]);
-                      }
-                    }}
-                    className={cn(
-                      "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
-                      selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
-                    )}
-                    style={{
-                      backgroundColor: tag.color + '20',
-                      color: tag.color,
-                      border: `1px solid ${tag.color}40`
-                    }}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
-                {selectedTags.length > 0 && (
-                  <button
-                    onClick={() => onSelectedTagsChange([])}
-                    className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
-                  >
-                    Wyczyść
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Panel przypisywania (unassigned) */}
-            {showUnassigned && selectedTransactionIds.size > 0 && (
-              <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-orange-500/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-neutral-300">Zaznaczono: <span className="font-bold text-orange-400">{selectedTransactionIds.size}</span></span>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="text"
-                    placeholder="Szukaj kategorii..."
-                    value={categorySearchFilter}
-                    onChange={(e) => onCategorySearchFilterChange(e.target.value)}
-                    className="h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-orange-500 w-full touch-manipulation"
-                  />
-                  <div className="flex gap-2">
-                    <select
-                      value={assignToCategoryId}
-                      onChange={(e) => onAssignToCategoryIdChange(e.target.value)}
-                      className="flex-1 h-9 px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-white focus:outline-none focus:ring-2 focus:ring-orange-500 touch-manipulation"
-                    >
-                      <option value="">Wybierz...</option>
-                      {filteredCategories.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {getCategoryPath(cat.id, categories).join(' → ')}
-                        </option>
-                      ))}
-                    </select>
-                    <Button onClick={onAssignToCategory} disabled={!assignToCategoryId} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation h-9 px-3 text-xs">
-                      Przypisz
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Panel akcji (assigned) */}
-            {!showUnassigned && selectedTransactionIds.size > 0 && (
-              <div className="mb-2 p-2 bg-neutral-950 rounded-lg border border-blue-500/50">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-neutral-300">Zaznaczono: <span className="font-bold text-blue-400">{selectedTransactionIds.size}</span></span>
-                </div>
-                <div className="flex items-stretch gap-2">
-                  <Button onClick={onUnlinkFromCategory} size="sm" className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation h-9 px-2 text-xs">Unlink</Button>
-                  <Button onClick={onDeleteTransactions} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white touch-manipulation h-9 px-2 text-xs">Delete</Button>
-                  <Button onClick={onEditTransactions} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white touch-manipulation h-9 px-2 text-xs">Edit</Button>
-                </div>
-              </div>
-            )}
-
-            {/* Tabela transakcji */}
-            <div className="overflow-auto flex-1">
-              <Table>
-                <TableHeader className="bg-neutral-950 sticky top-0 z-10">
-                  <TableRow className="border-b border-neutral-700">
-                    <TableHead className="w-10 text-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredTransactions.length > 0 && selectedTransactionIds.size === filteredTransactions.length}
-                        onChange={onToggleAllTransactions}
-                        className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${showUnassigned ? 'text-orange-600 focus:ring-orange-500' : 'text-blue-600 focus:ring-blue-500'}`}
-                      />
-                    </TableHead>
-                    {[
-                      { key: 'date', label: 'Data' },
-                      { key: 'transaction_type', label: 'Typ' },
-                      { key: 'amount', label: 'Kwota' },
-                      { key: 'payee', label: 'Odbiorca' },
-                      { key: 'description', label: 'Opis' },
-                      { key: 'origin', label: 'Pochodzenie' },
-                      { key: 'source', label: 'Źródło' },
-                    ].map(col => (
-                      <TableHead key={col.key} className="text-xs cursor-pointer hover:bg-neutral-800 transition-colors whitespace-nowrap" onClick={() => onSort(col.key)}>
-                        <div className="flex items-center gap-1">
-                          {col.label}
-                          {sortColumn === col.key && <span className="text-blue-400">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
-                        </div>
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTransactions.length > 0 ? (
-                    filteredTransactions.map((transaction, idx) => (
-                      <TableRow key={transaction.id || idx} className="hover:bg-neutral-800/50 border-b border-neutral-800">
-                        <TableCell className="w-10 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedTransactionIds.has(transaction.id)}
-                            onChange={() => onToggleTransaction(transaction.id)}
-                            className={`w-4 h-4 rounded border-neutral-600 bg-neutral-800 focus:ring-2 cursor-pointer ${showUnassigned ? 'text-orange-600 focus:ring-orange-500' : 'text-blue-600 focus:ring-blue-500'}`}
-                          />
-                        </TableCell>
-                        <TableCell className="text-xs whitespace-nowrap">{formatDate(transaction.date)}</TableCell>
-                        <TableCell className="text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${
-                              transaction.transaction_type === 'done'
-                                ? 'bg-green-900/30 text-green-400 border border-green-500/20'
-                                : (transaction.is_realized
-                                    ? 'bg-blue-900/30 text-blue-400 border border-blue-500/20'
-                                    : 'bg-yellow-900/30 text-yellow-400 border border-yellow-500/20')
-                            }`}>
-                              {transaction.transaction_type === 'done'
-                                ? 'done'
-                                : (transaction.is_realized ? 'planned (zrealizowana)' : 'planned')}
-                            </span>
-                            {transaction.transaction_type === 'planned' && onToggleRealized && (
-                              <input
-                                type="checkbox"
-                                checked={transaction.is_realized || false}
-                                onChange={() => onToggleRealized(transaction)}
-                                title="Oznacz jako zrealizowaną"
-                                className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-900 text-green-600 focus:ring-green-500 cursor-pointer"
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-right">
-                          <span className={Number(transaction.amount) < 0 ? 'text-red-400' : 'text-green-400'}>{formatCurrency(Number(transaction.amount))}</span>
-                        </TableCell>
-                        <TableCell className="text-xs text-neutral-300 max-w-[200px] truncate">{transaction.payee || '-'}</TableCell>
-                        <TableCell className="text-xs text-neutral-400 max-w-[250px] truncate">
-                          <div className="flex flex-col gap-1">
-                            <span>{transaction.description || '-'}</span>
-                            {transaction.tags && transaction.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1">
-                                {transaction.tags.map(tag => (
-                                  <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-neutral-300 max-w-[150px] truncate">{transaction.origin || '-'}</TableCell>
-                        <TableCell className="text-xs text-neutral-500">{transaction.source || '-'}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-neutral-500 py-8">
-                        {showUnassigned ? 'Brak nieprzypisanych transakcji w tym miesiącu' : 'Brak transakcji do wyświetlenia'}
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            {renderPanelContent()}
           </div>
         )}
       </div>

@@ -1,0 +1,317 @@
+/**
+ * Dashboard3Client - side-by-side view with 6 months
+ */
+
+"use client";
+
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+
+// Hooki
+import { usePivotCalculations } from "@/lib/hooks/usePivotCalculations";
+import { useDashboardState } from "@/lib/hooks/useDashboardState";
+import { useTransactionFilters } from "@/lib/hooks/useTransactionFilters";
+import { useTransactionActions } from "@/lib/hooks/useTransactionActions";
+import { useTransactionForms } from "@/lib/hooks/useTransactionForms";
+
+// Komponenty
+import { ToolBar } from "@/components/dashboard/ToolBar";
+import { PivotTable } from "@/components/dashboard/PivotTable";
+import { TransactionPanel } from "@/components/dashboard/TransactionPanel";
+import { EditTransactionDialog } from "@/components/dashboard/EditTransactionDialog";
+import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
+import CarryOverAssistant from "@/components/dashboard/CarryOverAssistant";
+
+// Typy
+import { Transaction, Account, Category, WeightLog, Rule, AccountStatement, Tag } from "@/lib/types/dashboard";
+
+interface Dashboard3ClientProps {
+  transactions: Transaction[];
+  accounts: Account[];
+  categories: Category[];
+  weightLogs: WeightLog[];
+  rules: Rule[];
+  accountStatements: AccountStatement[];
+  tags: Tag[];
+}
+
+export default function Dashboard3Client({
+  transactions,
+  accounts,
+  categories,
+  weightLogs,
+  rules,
+  accountStatements,
+  tags,
+}: Dashboard3ClientProps) {
+  const router = useRouter();
+  const [selectedYear] = useState(new Date().getFullYear());
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [hideUnstarredParents, setHideUnstarredParents] = useState(false);
+
+  // === HOOKI ===
+
+  // State management (localStorage, expanded categories, clicked cell)
+  const dashboardState = useDashboardState({ categories, transactions });
+
+  // Pivot calculations (kolumny, wartości, sumy) - 6 MONTHS
+  const pivotData = usePivotCalculations({
+    transactions,
+    categories,
+    selectedYear,
+    monthOffset: dashboardState.monthOffset,
+    accountStatements,
+    calculationMode: dashboardState.calculationMode,
+    starredOnly,
+    hideUnstarredParents,
+    numMonths: 6,
+  });
+
+  // Transaction filters (sortowanie, filtrowanie)
+  const transactionFilters = useTransactionFilters({
+    transactions,
+    categories,
+    clickedCell: dashboardState.clickedCell,
+    showUnassigned: dashboardState.showUnassigned,
+    transactionFilter: dashboardState.transactionFilter,
+    sortColumn: dashboardState.sortColumn,
+    sortDirection: dashboardState.sortDirection,
+    categorySearchFilter: dashboardState.categorySearchFilter,
+    setAssignToCategoryId: dashboardState.setAssignToCategoryId,
+    selectedTags: selectedTags,
+  });
+
+  // Transaction actions (API calls)
+  const transactionActions = useTransactionActions({
+    categories,
+    dashboardState: {
+      expandedCats: Array.from(dashboardState.expandedCats),
+      monthOffset: dashboardState.monthOffset,
+      categoryFilter: dashboardState.categoryFilter,
+      clickedCell: dashboardState.clickedCell,
+      isCellInfoExpanded: dashboardState.isCellInfoExpanded,
+      showUnassigned: dashboardState.showUnassigned,
+      transactionFilter: dashboardState.transactionFilter,
+      categorySearchFilter: dashboardState.categorySearchFilter,
+      assignToCategoryId: dashboardState.assignToCategoryId,
+      sortColumn: dashboardState.sortColumn,
+      sortDirection: dashboardState.sortDirection,
+      calculationMode: dashboardState.calculationMode,
+    },
+    expandedCats: dashboardState.expandedCats,
+    monthOffset: dashboardState.monthOffset,
+    categoryFilter: dashboardState.categoryFilter,
+  });
+
+  const formActions = useTransactionForms({
+    transactions,
+    categories,
+    dashboardState,
+  });
+
+  // === FUNKCJE POMOCNICZE ===
+
+  // Pobierz unikalne wartości origin z transakcji
+  const uniqueOrigins = React.useMemo(() => {
+    const origins = new Set<string>();
+    transactions.forEach(t => {
+      if (t.origin && t.origin.trim()) {
+        origins.add(t.origin.trim());
+      }
+    });
+    const sorted = Array.from(origins).sort();
+    if (!sorted.includes('cash')) {
+      sorted.unshift('cash');
+    }
+    return sorted;
+  }, [transactions]);
+
+  const handleToggleStar = async (catId: string, isStarred: boolean) => {
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: catId, is_starred: isStarred }),
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      router.refresh();
+    } catch (error) {
+      console.error("Error toggling star:", error);
+    }
+  };
+
+  const handleToggleArchive = async (catId: string, isArchived: boolean) => {
+    try {
+      const res = await fetch("/api/categories", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: catId, is_archived: isArchived }),
+      });
+      if (!res.ok) throw new Error("Failed to update category");
+      router.refresh();
+    } catch (error) {
+      console.error("Error toggling archive:", error);
+    }
+  };
+
+  const handleSort = (column: string) => {
+    if (dashboardState.sortColumn === column) {
+      dashboardState.setSortDirection(dashboardState.sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      dashboardState.setSortColumn(column);
+      dashboardState.setSortDirection('asc');
+    }
+  };
+
+  const toggleTransactionSelection = (transactionId: string) => {
+    const newSet = new Set(dashboardState.selectedTransactionIds);
+    if (newSet.has(transactionId)) {
+      newSet.delete(transactionId);
+    } else {
+      newSet.add(transactionId);
+    }
+    dashboardState.setSelectedTransactionIds(newSet);
+  };
+
+  const toggleAllTransactions = () => {
+    const visibleTransactions = transactionFilters.getFilteredAndSortedTransactions;
+    if (dashboardState.selectedTransactionIds.size === visibleTransactions.length) {
+      dashboardState.setSelectedTransactionIds(new Set());
+    } else {
+      const allIds = new Set(visibleTransactions.map(t => t.id));
+      dashboardState.setSelectedTransactionIds(allIds);
+    }
+  };
+
+  const handleToggleUnassigned = () => {
+    dashboardState.setShowUnassigned(!dashboardState.showUnassigned);
+    dashboardState.setAssignToCategoryId('');
+    dashboardState.setTransactionFilter('');
+  };
+
+  // === RENDER ===
+
+  return (
+    <div className="flex-grow p-2 md:p-4 overflow-hidden flex flex-col h-full">
+      <CarryOverAssistant
+        transactions={transactions}
+        categories={categories}
+        onRefresh={() => router.refresh()}
+      />
+      <div className="flex-1 flex flex-col lg:flex-row gap-4 overflow-hidden min-h-0 mt-3">
+        {/* Left Side: Toolbar + Pivot Table */}
+        <Card className="bg-neutral-900 border-neutral-800 flex-1 flex flex-col overflow-hidden h-full">
+          {/* Toolbar */}
+          <CardHeader className="flex flex-col py-2 gap-2 border-b border-neutral-800">
+            <ToolBar
+              monthOffset={dashboardState.monthOffset}
+              onMonthOffsetChange={dashboardState.setMonthOffset}
+              onExpandAll={dashboardState.expandAllByOneLevel}
+              onCollapseAll={dashboardState.collapseAllByOneLevel}
+              categoryFilter={dashboardState.categoryFilter}
+              onCategoryFilterChange={dashboardState.setCategoryFilter}
+              showCategoryFilter={dashboardState.showCategoryFilter}
+              onToggleCategoryFilter={() =>
+                dashboardState.setShowCategoryFilter(
+                  !dashboardState.showCategoryFilter,
+                )
+              }
+              isCellInfoExpanded={dashboardState.isCellInfoExpanded}
+              onToggleExpand={() =>
+                dashboardState.setIsCellInfoExpanded(
+                  !dashboardState.isCellInfoExpanded,
+                )
+              }
+              onOpenManualEntry={formActions.handleOpenManualEntryDialog}
+              calculationMode={dashboardState.calculationMode}
+              onCalculationModeChange={dashboardState.setCalculationMode}
+              currentMonthOffset={new Date().getMonth()}
+              starredOnly={starredOnly}
+              onToggleStarredOnly={() => setStarredOnly(!starredOnly)}
+              hideUnstarredParents={hideUnstarredParents}
+              onToggleHideUnstarredParents={() => setHideUnstarredParents(!hideUnstarredParents)}
+            />
+          </CardHeader>
+
+          {/* Pivot Table */}
+          <CardContent className="flex-1 overflow-auto p-0 relative">
+            <PivotTable
+              pivotData={pivotData}
+              expandedCats={dashboardState.expandedCats}
+              categoryFilter={dashboardState.categoryFilter}
+              onToggleCategory={dashboardState.toggleCategory}
+              onCellClick={(categoryId, monthKey, monthLabel) =>
+                dashboardState.handleCellClick(categoryId, monthKey, monthLabel, starredOnly, hideUnstarredParents)
+              }
+              clickedCell={dashboardState.clickedCell}
+              onToggleStar={handleToggleStar}
+              onToggleArchive={handleToggleArchive}
+              starredOnly={starredOnly}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Right Side: Transaction List Panel */}
+        <div className="flex-1 h-full overflow-hidden flex flex-col">
+          <TransactionPanel
+            clickedCell={dashboardState.clickedCell}
+            isCellInfoExpanded={true}
+            onToggleExpand={() => {}}
+            onOpenManualEntry={formActions.handleOpenManualEntryDialog}
+            showUnassigned={dashboardState.showUnassigned}
+            onToggleUnassigned={handleToggleUnassigned}
+            filteredTransactions={transactionFilters.getFilteredAndSortedTransactions}
+            transactionFilter={dashboardState.transactionFilter}
+            onTransactionFilterChange={dashboardState.setTransactionFilter}
+            sortColumn={dashboardState.sortColumn}
+            sortDirection={dashboardState.sortDirection}
+            onSort={handleSort}
+            selectedTransactionIds={dashboardState.selectedTransactionIds}
+            onToggleTransaction={toggleTransactionSelection}
+            onToggleAllTransactions={toggleAllTransactions}
+            onAssignToCategory={() => transactionActions.assignToCategory(dashboardState.selectedTransactionIds, dashboardState.assignToCategoryId)}
+            onUnlinkFromCategory={() => transactionActions.unlinkFromCategory(dashboardState.selectedTransactionIds)}
+            onDeleteTransactions={() => transactionActions.deleteTransactions(dashboardState.selectedTransactionIds)}
+            onEditTransactions={() => formActions.handleOpenEditDialog(dashboardState.selectedTransactionIds)}
+            onToggleRealized={(t) => transactionActions.editTransaction(t.id, { is_realized: !t.is_realized })}
+            categories={categories}
+            assignToCategoryId={dashboardState.assignToCategoryId}
+            onAssignToCategoryIdChange={dashboardState.setAssignToCategoryId}
+            categorySearchFilter={dashboardState.categorySearchFilter}
+            onCategorySearchFilterChange={dashboardState.setCategorySearchFilter}
+            filteredCategories={transactionFilters.getFilteredAndSortedCategories}
+            tags={tags}
+            selectedTags={selectedTags}
+            onSelectedTagsChange={setSelectedTags}
+            layout="side"
+          />
+        </div>
+      </div>
+
+      <EditTransactionDialog
+        isOpen={formActions.isEditDialogOpen}
+        onOpenChange={formActions.setIsEditDialogOpen}
+        formData={formActions.editFormData}
+        onFormChange={formActions.setEditFormData}
+        onSave={formActions.handleSaveEdit}
+        categories={categories}
+        onCancel={() => {
+          formActions.setIsEditDialogOpen(false);
+          formActions.setEditingTransaction(null);
+        }}
+      />
+
+      <ManualEntryDialog
+        isOpen={formActions.isManualEntryDialogOpen}
+        onOpenChange={formActions.setIsManualEntryDialogOpen}
+        formData={formActions.manualEntryFormData}
+        onFormChange={formActions.setManualEntryFormData}
+        onSave={formActions.handleSaveManualEntry}
+        categories={categories}
+        uniqueOrigins={uniqueOrigins}
+      />
+    </div>
+  );
+}
