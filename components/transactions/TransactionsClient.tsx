@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, X, Filter, Download } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter, Download } from "lucide-react";
 import * as XLSX from 'xlsx';
 
 // Dialogs
@@ -29,6 +29,21 @@ import CategoryMultiSelect from "./CategoryMultiSelect";
 // Types
 // Local Transaction interface removed - using shared Transaction from lib/types/dashboard
 
+function formatAmount(amount: number): string {
+  const rounded = Math.round(amount);
+  const absRounded = Math.abs(rounded);
+  let str = String(absRounded);
+  const parts = [];
+  while (str.length > 3) {
+    parts.unshift(str.slice(-3));
+    str = str.slice(0, -3);
+  }
+  if (str) {
+    parts.unshift(str);
+  }
+  return (rounded < 0 ? "-" : "") + parts.join(" ");
+}
+
 export default function TransactionsClient() {
   const queryClient = useQueryClient();
 
@@ -43,6 +58,144 @@ export default function TransactionsClient() {
   const [dateTo, setDateTo] = useState("");
   const [minAmount, setMinAmount] = useState("");
   const [maxAmount, setMaxAmount] = useState("");
+
+  const [activeDatePreset, setActiveDatePreset] = useState<"dzis" | "tydz" | "mc" | "kwartal" | "rok" | null>(null);
+  const [presetBaseDate, setPresetBaseDate] = useState<Date>(new Date());
+  
+  const [sectionsOpen, setSectionsOpen] = useState({
+    basic: true,
+    categories: false,
+    dateAmount: true,
+    tags: false,
+  });
+
+  const toggleSection = (section: keyof typeof sectionsOpen) => {
+    setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const formatDate = (date: Date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const applyPreset = (preset: "dzis" | "tydz" | "mc" | "kwartal" | "rok", base: Date) => {
+    let start: Date;
+    let end: Date;
+
+    switch (preset) {
+      case "dzis": {
+        start = new Date(base);
+        end = new Date(base);
+        break;
+      }
+      case "tydz": {
+        start = new Date(base);
+        const day = start.getDay();
+        const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+        start.setDate(diff);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        break;
+      }
+      case "mc": {
+        start = new Date(base.getFullYear(), base.getMonth(), 1);
+        end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+        break;
+      }
+      case "kwartal": {
+        const qStartMonth = Math.floor(base.getMonth() / 3) * 3;
+        start = new Date(base.getFullYear(), qStartMonth, 1);
+        end = new Date(base.getFullYear(), qStartMonth + 3, 0);
+        break;
+      }
+      case "rok": {
+        start = new Date(base.getFullYear(), 0, 1);
+        end = new Date(base.getFullYear(), 12, 0);
+        break;
+      }
+    }
+
+    setDateFrom(formatDate(start));
+    setDateTo(formatDate(end));
+  };
+
+  const shiftPreset = (direction: "prev" | "next") => {
+    if (!activeDatePreset) {
+      if (dateFrom && dateTo) {
+        const from = new Date(dateFrom);
+        const to = new Date(dateTo);
+        const diffTime = to.getTime() - from.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) || 1;
+        const shift = direction === "next" ? diffDays : -diffDays;
+        
+        const newFrom = new Date(from);
+        newFrom.setDate(from.getDate() + shift);
+        const newTo = new Date(to);
+        newTo.setDate(to.getDate() + shift);
+        
+        setDateFrom(formatDate(newFrom));
+        setDateTo(formatDate(newTo));
+      } else if (dateFrom) {
+        const from = new Date(dateFrom);
+        from.setMonth(from.getMonth() + (direction === "next" ? 1 : -1));
+        setDateFrom(formatDate(from));
+      } else if (dateTo) {
+        const to = new Date(dateTo);
+        to.setMonth(to.getMonth() + (direction === "next" ? 1 : -1));
+        setDateTo(formatDate(to));
+      } else {
+        const newBase = new Date(presetBaseDate);
+        newBase.setMonth(newBase.getMonth() + (direction === "next" ? 1 : -1));
+        setPresetBaseDate(newBase);
+        setActiveDatePreset("mc");
+        applyPreset("mc", newBase);
+      }
+      return;
+    }
+
+    const newBase = new Date(presetBaseDate);
+    const factor = direction === "next" ? 1 : -1;
+
+    switch (activeDatePreset) {
+      case "dzis":
+        newBase.setDate(newBase.getDate() + factor);
+        break;
+      case "tydz":
+        newBase.setDate(newBase.getDate() + factor * 7);
+        break;
+      case "mc":
+        newBase.setMonth(newBase.getMonth() + factor);
+        break;
+      case "kwartal":
+        newBase.setMonth(newBase.getMonth() + factor * 3);
+        break;
+      case "rok":
+        newBase.setFullYear(newBase.getFullYear() + factor);
+        break;
+    }
+
+    setPresetBaseDate(newBase);
+    applyPreset(activeDatePreset, newBase);
+  };
+
+  const handlePresetClick = (preset: "dzis" | "tydz" | "mc" | "kwartal" | "rok") => {
+    const today = new Date();
+    setPresetBaseDate(today);
+    setActiveDatePreset(preset);
+    applyPreset(preset, today);
+  };
+
+  const handleDateFromChange = (val: string) => {
+    setDateFrom(val);
+    setActiveDatePreset(null);
+  };
+
+  const handleDateToChange = (val: string) => {
+    setDateTo(val);
+    setActiveDatePreset(null);
+  };
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const [sortColumn, setSortColumn] = useState<string>("date");
@@ -213,6 +366,8 @@ export default function TransactionsClient() {
     setMinAmount("");
     setMaxAmount("");
     setSelectedTags([]);
+    setActiveDatePreset(null);
+    setPresetBaseDate(new Date());
   };
 
   // ===== FILTERING & SORTING =====
@@ -529,176 +684,333 @@ export default function TransactionsClient() {
 
   const FilterContent = (
     <div className="space-y-4">
-      {/* Add Transaction Button */}
-      <Button onClick={() => {
-        setIsAddDialogOpen(true);
-        setIsFiltersSheetOpen(false);
-      }} className="w-full" size="sm">
-        <Plus className="h-4 w-4 mr-2" />
-        Add Transaction
-      </Button>
+      {/* Top Action Buttons (always visible) */}
+      <div className="space-y-2">
+        <Button onClick={() => {
+          setIsAddDialogOpen(true);
+          setIsFiltersSheetOpen(false);
+        }} className="w-full" size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Transaction
+        </Button>
 
-      {/* Export Button */}
-      <Button onClick={handleExport} variant="outline" className="w-full" size="sm">
-        <Download className="h-4 w-4 mr-2" />
-        Eksportuj do XLSX
-      </Button>
+        <Button onClick={handleExport} variant="outline" className="w-full" size="sm">
+          <Download className="h-4 w-4 mr-2" />
+          Eksportuj do XLSX
+        </Button>
 
-      {/* Clear Filters Button */}
-      <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
-        <X className="h-4 w-4 mr-2" />
-        Wyczyść filtry
-      </Button>
-
-      {/* Search Bar */}
-      <div>
-        <Label className="text-xs">Szukaj</Label>
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-500" />
-          <Input
-            placeholder="Payee, description..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-        </div>
+        <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
+          <X className="h-4 w-4 mr-2" />
+          Wyczyść filtry
+        </Button>
       </div>
 
-      {/* Link Status Tabs */}
-      <div>
-        <Label className="text-xs">Status powiązania</Label>
-        <Tabs value={linkStatus} onValueChange={(v: any) => setLinkStatus(v)}>
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="linked">Linked</TabsTrigger>
-            <TabsTrigger value="unlinked">Unlinked</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      {/* Group 1: Podstawowe filtry */}
+      <div className="border-t border-neutral-800 pt-3">
+        <button
+          type="button"
+          onClick={() => toggleSection("basic")}
+          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
+        >
+          <span>Podstawowe filtry</span>
+          {sectionsOpen.basic ? (
+            <ChevronUp className="h-4 w-4 text-neutral-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-neutral-500" />
+          )}
+        </button>
+        
+        {sectionsOpen.basic && (
+          <div className="space-y-4 pt-1">
+            {/* Search Bar */}
+            <div>
+              <Label className="text-xs">Szukaj</Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-500" />
+                <Input
+                  placeholder="Payee, description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
 
-      {/* Origin Tabs */}
-      <div>
-        <Label className="text-xs">Pochodzenie</Label>
-        <Tabs value={originFilter} onValueChange={setOriginFilter}>
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="mbank">mBank</TabsTrigger>
-            <TabsTrigger value="ing">ING</TabsTrigger>
-          </TabsList>
-          <TabsList className="grid grid-cols-3 w-full mt-1">
-            <TabsTrigger value="pekao">Pekao</TabsTrigger>
-            <TabsTrigger value="cash">Cash</TabsTrigger>
-            <TabsTrigger value="unknown">Unknown</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+            {/* Link Status Tabs */}
+            <div>
+              <Label className="text-xs">Status powiązania</Label>
+              <Tabs value={linkStatus} onValueChange={(v: any) => setLinkStatus(v)} className="mt-1">
+                <TabsList className="grid grid-cols-3 w-full">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="linked">Linked</TabsTrigger>
+                  <TabsTrigger value="unlinked">Unlinked</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
-      {/* Transaction Type Tabs */}
-      <div>
-        <Label className="text-xs">Typ transakcji</Label>
-        <Tabs value={typeFilter} onValueChange={setTypeFilter}>
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="planned">Planned</TabsTrigger>
-            <TabsTrigger value="done">Done</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+            {/* Origin Tabs */}
+            <div>
+              <Label className="text-xs">Pochodzenie</Label>
+              <Tabs value={originFilter} onValueChange={setOriginFilter} className="mt-1">
+                <TabsList className="grid grid-cols-3 w-full">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="mbank">mBank</TabsTrigger>
+                  <TabsTrigger value="ing">ING</TabsTrigger>
+                </TabsList>
+                <TabsList className="grid grid-cols-3 w-full mt-1">
+                  <TabsTrigger value="pekao">Pekao</TabsTrigger>
+                  <TabsTrigger value="cash">Cash</TabsTrigger>
+                  <TabsTrigger value="unknown">Unknown</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
 
-      {/* Category Multi-Select Filters */}
-      <CategoryMultiSelect
-        label="Kategorie"
-        categories={categories}
-        selectedIds={selectedCategories}
-        onChange={setSelectedCategories}
-        placeholder="Filtruj kategorie..."
-        iconColorClass="text-blue-400"
-      />
-
-      <CategoryMultiSelect
-        label="Wykluczone kategorie"
-        categories={categories}
-        selectedIds={excludedCategories}
-        onChange={setExcludedCategories}
-        placeholder="Filtruj wykluczone..."
-        iconColorClass="text-red-400"
-      />
-
-      {/* Date Range */}
-      <div>
-        <Label className="text-xs">Zakres dat</Label>
-        <div className="space-y-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            placeholder="Od"
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            placeholder="Do"
-          />
-        </div>
-      </div>
-
-      {/* Amount Range */}
-      <div>
-        <Label className="text-xs">Zakres kwot</Label>
-        <div className="space-y-2">
-          <Input
-            type="number"
-            value={minAmount}
-            onChange={(e) => setMinAmount(e.target.value)}
-            placeholder="Min Amount"
-          />
-          <Input
-            type="number"
-            value={maxAmount}
-            onChange={(e) => setMaxAmount(e.target.value)}
-            placeholder="Max Amount"
-          />
-        </div>
-      </div>
-
-      {/* Tag Filter bar */}
-      {tags.length > 0 && (
-        <div className="pt-2">
-          <Label className="text-xs mb-1 block">Tagi</Label>
-          <div className="flex flex-wrap gap-1 p-2 bg-neutral-950/50 rounded-md border border-neutral-800">
-            {tags.map((tag: Tag) => (
-              <button
-                key={tag.id}
-                onClick={() => {
-                  if (selectedTags.includes(tag.id)) {
-                    setSelectedTags(selectedTags.filter(id => id !== tag.id));
-                  } else {
-                    setSelectedTags([...selectedTags, tag.id]);
-                  }
-                }}
-                className={cn(
-                  "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
-                  selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
-                )}
-                style={{
-                  backgroundColor: tag.color + '20',
-                  color: tag.color,
-                  border: `1px solid ${tag.color}40`
-                }}
-              >
-                {tag.name}
-              </button>
-            ))}
-            {selectedTags.length > 0 && (
-              <button
-                onClick={() => setSelectedTags([])}
-                className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
-              >
-                Wyczyść
-              </button>
-            )}
+            {/* Transaction Type Tabs */}
+            <div>
+              <Label className="text-xs">Typ transakcji</Label>
+              <Tabs value={typeFilter} onValueChange={setTypeFilter} className="mt-1">
+                <TabsList className="grid grid-cols-3 w-full">
+                  <TabsTrigger value="all">All</TabsTrigger>
+                  <TabsTrigger value="planned">Planned</TabsTrigger>
+                  <TabsTrigger value="done">Done</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
+        )}
+      </div>
+
+      {/* Group 2: Kategorie */}
+      <div className="border-t border-neutral-800 pt-3">
+        <button
+          type="button"
+          onClick={() => toggleSection("categories")}
+          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
+        >
+          <span>Kategorie</span>
+          {sectionsOpen.categories ? (
+            <ChevronUp className="h-4 w-4 text-neutral-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-neutral-500" />
+          )}
+        </button>
+
+        {sectionsOpen.categories && (
+          <div className="space-y-4 pt-1">
+            <CategoryMultiSelect
+              label="Kategorie"
+              categories={categories}
+              selectedIds={selectedCategories}
+              onChange={setSelectedCategories}
+              placeholder="Filtruj kategorie..."
+              iconColorClass="text-blue-400"
+            />
+
+            <CategoryMultiSelect
+              label="Wykluczone kategorie"
+              categories={categories}
+              selectedIds={excludedCategories}
+              onChange={setExcludedCategories}
+              placeholder="Filtruj wykluczone..."
+              iconColorClass="text-red-400"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Group 3: Data i Kwota */}
+      <div className="border-t border-neutral-800 pt-3">
+        <button
+          type="button"
+          onClick={() => toggleSection("dateAmount")}
+          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
+        >
+          <span>Przedział czasu i kwot</span>
+          {sectionsOpen.dateAmount ? (
+            <ChevronUp className="h-4 w-4 text-neutral-500" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-neutral-500" />
+          )}
+        </button>
+
+        {sectionsOpen.dateAmount && (
+          <div className="space-y-4 pt-1">
+            {/* Date Range with presets and arrows */}
+            <div>
+              <Label className="text-xs">Zakres dat</Label>
+              
+              <div className="flex items-center gap-1 my-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={() => shiftPreset("prev")}
+                  title="Przesuń wstecz"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+                
+                <div className="grid grid-cols-5 gap-0.5 flex-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeDatePreset === "dzis" ? "default" : "outline"}
+                    className="h-7 px-0 text-[10px] font-medium"
+                    onClick={() => handlePresetClick("dzis")}
+                    title="Dziś"
+                  >
+                    Dziś
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeDatePreset === "tydz" ? "default" : "outline"}
+                    className="h-7 px-0 text-[10px] font-medium"
+                    onClick={() => handlePresetClick("tydz")}
+                    title="Ten tydzień"
+                  >
+                    Tydz
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeDatePreset === "mc" ? "default" : "outline"}
+                    className="h-7 px-0 text-[10px] font-medium"
+                    onClick={() => handlePresetClick("mc")}
+                    title="Ten miesiąc"
+                  >
+                    M-c
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeDatePreset === "kwartal" ? "default" : "outline"}
+                    className="h-7 px-0 text-[10px] font-medium"
+                    onClick={() => handlePresetClick("kwartal")}
+                    title="Ten kwartał"
+                  >
+                    Kwart
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={activeDatePreset === "rok" ? "default" : "outline"}
+                    className="h-7 px-0 text-[10px] font-medium"
+                    onClick={() => handlePresetClick("rok")}
+                    title="Ten rok"
+                  >
+                    Rok
+                  </Button>
+                </div>
+                
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={() => shiftPreset("next")}
+                  title="Przesuń w przód"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => handleDateFromChange(e.target.value)}
+                  placeholder="Od"
+                  className="text-xs"
+                />
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => handleDateToChange(e.target.value)}
+                  placeholder="Do"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Amount Range */}
+            <div>
+              <Label className="text-xs">Zakres kwot</Label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <Input
+                  type="number"
+                  value={minAmount}
+                  onChange={(e) => setMinAmount(e.target.value)}
+                  placeholder="Min"
+                  className="text-xs"
+                />
+                <Input
+                  type="number"
+                  value={maxAmount}
+                  onChange={(e) => setMaxAmount(e.target.value)}
+                  placeholder="Max"
+                  className="text-xs"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Group 4: Tagi */}
+      {tags.length > 0 && (
+        <div className="border-t border-neutral-800 pt-3">
+          <button
+            type="button"
+            onClick={() => toggleSection("tags")}
+            className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
+          >
+            <span>Tagi</span>
+            {sectionsOpen.tags ? (
+              <ChevronUp className="h-4 w-4 text-neutral-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-neutral-500" />
+            )}
+          </button>
+
+          {sectionsOpen.tags && (
+            <div className="pt-1">
+              <div className="flex flex-wrap gap-1 p-2 bg-neutral-950/50 rounded-md border border-neutral-800">
+                {tags.map((tag: Tag) => (
+                  <button
+                    key={tag.id}
+                    onClick={() => {
+                      if (selectedTags.includes(tag.id)) {
+                        setSelectedTags(selectedTags.filter(id => id !== tag.id));
+                      } else {
+                        setSelectedTags([...selectedTags, tag.id]);
+                      }
+                    }}
+                    className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-medium transition-all",
+                      selectedTags.includes(tag.id) ? "opacity-100 ring-1 ring-blue-500" : "opacity-40 hover:opacity-100"
+                    )}
+                    style={{
+                      backgroundColor: tag.color + '20',
+                      color: tag.color,
+                      border: `1px solid ${tag.color}40`
+                    }}
+                  >
+                    {tag.name}
+                  </button>
+                ))}
+                {selectedTags.length > 0 && (
+                  <button
+                    onClick={() => setSelectedTags([])}
+                    className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
+                  >
+                    Wyczyść
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -872,10 +1184,10 @@ export default function TransactionsClient() {
                       </div>
                     </TableCell>
                     <TableCell className={`text-right font-medium whitespace-nowrap ${(t.amount || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
-                      {(t.amount || 0).toFixed(2)}
+                      {formatAmount(t.amount || 0)}
                     </TableCell>
                     <TableCell className="text-right font-medium whitespace-nowrap">
-                      {(t.cumulativeBalance as number).toFixed(2)}
+                      {formatAmount(t.cumulativeBalance as number)}
                     </TableCell>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex gap-1">
@@ -911,9 +1223,9 @@ export default function TransactionsClient() {
           {/* Footer */}
           <div className="mt-4 flex items-center justify-between">
             <div className="flex gap-4 text-sm">
-              <span>Planned: <span className="font-medium">{transactionSums.planned.toFixed(2)}</span></span>
-              <span>Done: <span className="font-medium">{transactionSums.done.toFixed(2)}</span></span>
-              <span>Total: <span className="font-medium">{transactionSums.total.toFixed(2)}</span></span>
+              <span>Planned: <span className="font-medium">{formatAmount(transactionSums.planned)}</span></span>
+              <span>Done: <span className="font-medium">{formatAmount(transactionSums.done)}</span></span>
+              <span>Total: <span className="font-medium">{formatAmount(transactionSums.total)}</span></span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-neutral-400">
