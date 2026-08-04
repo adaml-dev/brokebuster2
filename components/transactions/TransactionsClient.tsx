@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter, Download } from "lucide-react";
@@ -29,6 +30,11 @@ import CategoryMultiSelect from "./CategoryMultiSelect";
 // Types
 // Local Transaction interface removed - using shared Transaction from lib/types/dashboard
 
+interface SearchRule {
+  text: string;
+  operator: "AND" | "OR";
+}
+
 function formatAmount(amount: number): string {
   const rounded = Math.round(amount);
   const absRounded = Math.abs(rounded);
@@ -48,7 +54,10 @@ export default function TransactionsClient() {
   const queryClient = useQueryClient();
 
   // ===== STATE MANAGEMENT =====
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchRules, setSearchRules] = useState<SearchRule[]>([
+    { text: "", operator: "AND" }
+  ]);
+  const [useAbsoluteAmount, setUseAbsoluteAmount] = useState(false);
   const [linkStatus, setLinkStatus] = useState<"all" | "linked" | "unlinked">("all");
   const [originFilter, setOriginFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -355,7 +364,8 @@ export default function TransactionsClient() {
   };
 
   const clearFilters = () => {
-    setSearchTerm("");
+    setSearchRules([{ text: "", operator: "AND" }]);
+    setUseAbsoluteAmount(false);
     setLinkStatus("all");
     setOriginFilter("all");
     setTypeFilter("all");
@@ -370,13 +380,13 @@ export default function TransactionsClient() {
     setPresetBaseDate(new Date());
   };
 
-  const isBasicFiltered = searchTerm !== "" || linkStatus !== "all" || originFilter !== "all" || typeFilter !== "all";
+  const isBasicFiltered = searchRules.some(r => r.text !== "") || linkStatus !== "all" || originFilter !== "all" || typeFilter !== "all";
   const isCategoriesFiltered = selectedCategories.length > 0 || excludedCategories.length > 0;
-  const isDateAmountFiltered = dateFrom !== "" || dateTo !== "" || minAmount !== "" || maxAmount !== "";
+  const isDateAmountFiltered = dateFrom !== "" || dateTo !== "" || minAmount !== "" || maxAmount !== "" || useAbsoluteAmount;
   const isTagsFiltered = selectedTags.length > 0;
 
   const clearBasicFilters = () => {
-    setSearchTerm("");
+    setSearchRules([{ text: "", operator: "AND" }]);
     setLinkStatus("all");
     setOriginFilter("all");
     setTypeFilter("all");
@@ -394,6 +404,7 @@ export default function TransactionsClient() {
     setMaxAmount("");
     setActiveDatePreset(null);
     setPresetBaseDate(new Date());
+    setUseAbsoluteAmount(false);
   };
 
   const clearTagsFilters = () => {
@@ -405,13 +416,32 @@ export default function TransactionsClient() {
     let filtered = [...transactions];
 
     // Search filter
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (t) =>
-          t.payee?.toLowerCase().includes(search) ||
-          t.description?.toLowerCase().includes(search)
-      );
+    if (searchRules.some(r => r.text.trim() !== "")) {
+      filtered = filtered.filter((t) => {
+        const activeRules = searchRules.filter(r => r.text.trim() !== "");
+        if (activeRules.length === 0) return true;
+
+        const payee = t.payee?.toLowerCase() || "";
+        const desc = t.description?.toLowerCase() || "";
+        
+        const matchesRule = (text: string) => {
+          const term = text.toLowerCase();
+          return payee.includes(term) || desc.includes(term);
+        };
+
+        const orGroups: string[][] = [[]];
+        activeRules.forEach((rule, idx) => {
+          if (idx > 0 && rule.operator === "OR") {
+            orGroups.push([rule.text]);
+          } else {
+            orGroups[orGroups.length - 1].push(rule.text);
+          }
+        });
+
+        return orGroups.some(andGroup => 
+          andGroup.every(term => matchesRule(term))
+        );
+      });
     }
 
     // Link status filter
@@ -479,10 +509,16 @@ export default function TransactionsClient() {
 
     // Amount range filter
     if (minAmount) {
-      filtered = filtered.filter((t) => Math.abs(t.amount) >= parseFloat(minAmount));
+      const min = parseFloat(minAmount);
+      filtered = filtered.filter((t) => 
+        useAbsoluteAmount ? Math.abs(t.amount || 0) >= min : (t.amount || 0) >= min
+      );
     }
     if (maxAmount) {
-      filtered = filtered.filter((t) => Math.abs(t.amount) <= parseFloat(maxAmount));
+      const max = parseFloat(maxAmount);
+      filtered = filtered.filter((t) => 
+        useAbsoluteAmount ? Math.abs(t.amount || 0) <= max : (t.amount || 0) <= max
+      );
     }
 
     // Tag filter
@@ -508,12 +544,12 @@ export default function TransactionsClient() {
     });
 
     return filtered;
-  }, [transactions, searchTerm, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
+  }, [transactions, searchRules, useAbsoluteAmount, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
 
   // Reset currentPage to 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags]);
+  }, [searchRules, useAbsoluteAmount, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags]);
 
   // ===== PAGINATION =====
   const totalPages = Math.ceil(filteredAndSortedTransactions.length / itemsPerPage);
@@ -763,17 +799,86 @@ export default function TransactionsClient() {
         
         {sectionsOpen.basic && (
           <div className="space-y-4 pt-1">
-            {/* Search Bar */}
+            {/* Search Builder */}
             <div>
               <Label className="text-xs">Szukaj</Label>
-              <div className="relative mt-1">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-neutral-500" />
-                <Input
-                  placeholder="Payee, description..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
-                />
+              <div className="space-y-2 mt-1">
+                {searchRules.map((rule, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5 animate-fadeIn">
+                    {idx > 0 && (
+                      <Select
+                        value={rule.operator}
+                        onValueChange={(val: "AND" | "OR") => {
+                          const newRules = [...searchRules];
+                          newRules[idx].operator = val;
+                          setSearchRules(newRules);
+                        }}
+                      >
+                        <SelectTrigger className="w-20 h-8 text-[11px] shrink-0 px-2 bg-neutral-900 border-neutral-800">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                          <SelectItem value="AND">Oraz</SelectItem>
+                          <SelectItem value="OR">Lub</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-neutral-500" />
+                      <Input
+                        placeholder="Fraza..."
+                        value={rule.text}
+                        onChange={(e) => {
+                          const newRules = [...searchRules];
+                          newRules[idx].text = e.target.value;
+                          setSearchRules(newRules);
+                        }}
+                        className="pl-8 h-8 text-xs"
+                      />
+                    </div>
+                    {idx > 0 && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          const newRules = searchRules.filter((_, i) => i !== idx);
+                          setSearchRules(newRules);
+                        }}
+                        className="h-8 w-8 p-0 text-neutral-500 hover:text-red-400"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                {searchRules.length < 5 && (
+                  <div className="flex gap-2 pt-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSearchRules([...searchRules, { text: "", operator: "AND" }]);
+                      }}
+                      className="h-7 text-[10px] px-2 py-0.5 flex-1"
+                    >
+                      + Oraz (AND)
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSearchRules([...searchRules, { text: "", operator: "OR" }]);
+                      }}
+                      className="h-7 text-[10px] px-2 py-0.5 flex-1"
+                    >
+                      + Lub (OR)
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1016,6 +1121,18 @@ export default function TransactionsClient() {
                   className="text-xs"
                 />
               </div>
+              
+              <div className="flex items-center justify-between mt-2 pt-1">
+                <Label htmlFor="absolute-amount-toggle" className="text-[10px] text-neutral-400 cursor-pointer">
+                  Wartość bezwzględna (±)
+                </Label>
+                <Switch
+                  id="absolute-amount-toggle"
+                  checked={useAbsoluteAmount}
+                  onCheckedChange={setUseAbsoluteAmount}
+                  className="scale-75 origin-right"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1085,31 +1202,21 @@ export default function TransactionsClient() {
   // ===== RENDER =====
   return (
     <div className="flex gap-4 h-full">
-      {/* DESKTOP SIDEBAR */}
-      <Card className="hidden lg:flex flex-col w-80 bg-neutral-900 border-neutral-800 flex-shrink-0 overflow-hidden">
-        <CardHeader className="pb-3">
-          <h2 className="text-lg font-semibold">Filtry i Kontrole</h2>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto px-4 custom-scrollbar">
-          {FilterContent}
-        </CardContent>
-      </Card>
-
       {/* MAIN CONTENT */}
       <Card className="flex-1 bg-neutral-900 border-neutral-800 flex flex-col overflow-hidden">
         <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
-          {/* Mobile Filter Button */}
-          <div className="lg:hidden flex gap-2 mb-4">
+          {/* Filter Action Bar (Visible on all screens) */}
+          <div className="flex gap-2 mb-4 justify-start">
             <Sheet open={isFiltersSheetOpen} onOpenChange={setIsFiltersSheetOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" className="flex-1">
+                <Button variant="outline" className="flex-1 sm:flex-initial sm:w-36">
                   <Filter className="h-4 w-4 mr-2" />
                   Filtry
                 </Button>
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto"
+                className="bg-neutral-950 border-neutral-800 text-white overflow-y-auto w-80 sm:w-96"
                 hideCloseButton={true}
                 onInteractOutside={(e) => {
                   const originalEvent = e.detail.originalEvent;
@@ -1124,7 +1231,7 @@ export default function TransactionsClient() {
                 {FilterContent}
               </SheetContent>
             </Sheet>
-            <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1">
+            <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 sm:flex-initial sm:w-36">
               <Plus className="h-4 w-4 mr-2" />
               Add
             </Button>
