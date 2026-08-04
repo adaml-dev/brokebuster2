@@ -370,6 +370,36 @@ export default function TransactionsClient() {
     setPresetBaseDate(new Date());
   };
 
+  const isBasicFiltered = searchTerm !== "" || linkStatus !== "all" || originFilter !== "all" || typeFilter !== "all";
+  const isCategoriesFiltered = selectedCategories.length > 0 || excludedCategories.length > 0;
+  const isDateAmountFiltered = dateFrom !== "" || dateTo !== "" || minAmount !== "" || maxAmount !== "";
+  const isTagsFiltered = selectedTags.length > 0;
+
+  const clearBasicFilters = () => {
+    setSearchTerm("");
+    setLinkStatus("all");
+    setOriginFilter("all");
+    setTypeFilter("all");
+  };
+
+  const clearCategoriesFilters = () => {
+    setSelectedCategories([]);
+    setExcludedCategories([]);
+  };
+
+  const clearDateAmountFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setMinAmount("");
+    setMaxAmount("");
+    setActiveDatePreset(null);
+    setPresetBaseDate(new Date());
+  };
+
+  const clearTagsFilters = () => {
+    setSelectedTags([]);
+  };
+
   // ===== FILTERING & SORTING =====
   const filteredAndSortedTransactions = useMemo(() => {
     let filtered = [...transactions];
@@ -707,18 +737,29 @@ export default function TransactionsClient() {
 
       {/* Group 1: Podstawowe filtry */}
       <div className="border-t border-neutral-800 pt-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("basic")}
-          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
-        >
-          <span>Podstawowe filtry</span>
-          {sectionsOpen.basic ? (
-            <ChevronUp className="h-4 w-4 text-neutral-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-neutral-500" />
+        <div className="flex items-center justify-between mb-2">
+          <button
+            type="button"
+            onClick={() => toggleSection("basic")}
+            className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider focus:outline-none text-left"
+          >
+            <span>Podstawowe filtry</span>
+            {sectionsOpen.basic ? (
+              <ChevronUp className="h-4 w-4 text-neutral-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-neutral-500" />
+            )}
+          </button>
+          {isBasicFiltered && (
+            <button
+              type="button"
+              onClick={clearBasicFilters}
+              className="text-[10px] text-blue-400 hover:text-blue-300 font-medium px-1 focus:outline-none"
+            >
+              Wyczyść
+            </button>
           )}
-        </button>
+        </div>
         
         {sectionsOpen.basic && (
           <div className="space-y-4 pt-1">
@@ -782,18 +823,29 @@ export default function TransactionsClient() {
 
       {/* Group 2: Kategorie */}
       <div className="border-t border-neutral-800 pt-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("categories")}
-          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
-        >
-          <span>Kategorie</span>
-          {sectionsOpen.categories ? (
-            <ChevronUp className="h-4 w-4 text-neutral-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-neutral-500" />
+        <div className="flex items-center justify-between mb-2">
+          <button
+            type="button"
+            onClick={() => toggleSection("categories")}
+            className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider focus:outline-none text-left"
+          >
+            <span>Kategorie</span>
+            {sectionsOpen.categories ? (
+              <ChevronUp className="h-4 w-4 text-neutral-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-neutral-500" />
+            )}
+          </button>
+          {isCategoriesFiltered && (
+            <button
+              type="button"
+              onClick={clearCategoriesFilters}
+              className="text-[10px] text-blue-400 hover:text-blue-300 font-medium px-1 focus:outline-none"
+            >
+              Wyczyść
+            </button>
           )}
-        </button>
+        </div>
 
         {sectionsOpen.categories && (
           <div className="space-y-4 pt-1">
@@ -820,18 +872,29 @@ export default function TransactionsClient() {
 
       {/* Group 3: Data i Kwota */}
       <div className="border-t border-neutral-800 pt-3">
-        <button
-          type="button"
-          onClick={() => toggleSection("dateAmount")}
-          className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
-        >
-          <span>Przedział czasu i kwot</span>
-          {sectionsOpen.dateAmount ? (
-            <ChevronUp className="h-4 w-4 text-neutral-500" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-neutral-500" />
+        <div className="flex items-center justify-between mb-2">
+          <button
+            type="button"
+            onClick={() => toggleSection("dateAmount")}
+            className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider focus:outline-none text-left"
+          >
+            <span>Przedział czasu i kwot</span>
+            {sectionsOpen.dateAmount ? (
+              <ChevronUp className="h-4 w-4 text-neutral-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-neutral-500" />
+            )}
+          </button>
+          {isDateAmountFiltered && (
+            <button
+              type="button"
+              onClick={clearDateAmountFilters}
+              className="text-[10px] text-blue-400 hover:text-blue-300 font-medium px-1 focus:outline-none"
+            >
+              Wyczyść
+            </button>
           )}
-        </button>
+        </div>
 
         {sectionsOpen.dateAmount && (
           <div className="space-y-4 pt-1">
@@ -961,18 +1024,29 @@ export default function TransactionsClient() {
       {/* Group 4: Tagi */}
       {tags.length > 0 && (
         <div className="border-t border-neutral-800 pt-3">
-          <button
-            type="button"
-            onClick={() => toggleSection("tags")}
-            className="flex items-center justify-between w-full text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider mb-2 focus:outline-none"
-          >
-            <span>Tagi</span>
-            {sectionsOpen.tags ? (
-              <ChevronUp className="h-4 w-4 text-neutral-500" />
-            ) : (
-              <ChevronDown className="h-4 w-4 text-neutral-500" />
+          <div className="flex items-center justify-between mb-2">
+            <button
+              type="button"
+              onClick={() => toggleSection("tags")}
+              className="flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-white uppercase tracking-wider focus:outline-none text-left"
+            >
+              <span>Tagi</span>
+              {sectionsOpen.tags ? (
+                <ChevronUp className="h-4 w-4 text-neutral-500" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-neutral-500" />
+              )}
+            </button>
+            {isTagsFiltered && (
+              <button
+                type="button"
+                onClick={clearTagsFilters}
+                className="text-[10px] text-blue-400 hover:text-blue-300 font-medium px-1 focus:outline-none"
+              >
+                Wyczyść
+              </button>
             )}
-          </button>
+          </div>
 
           {sectionsOpen.tags && (
             <div className="pt-1">
@@ -1000,14 +1074,6 @@ export default function TransactionsClient() {
                     {tag.name}
                   </button>
                 ))}
-                {selectedTags.length > 0 && (
-                  <button
-                    onClick={() => setSelectedTags([])}
-                    className="text-[10px] text-neutral-500 hover:text-white px-1 ml-auto"
-                  >
-                    Wyczyść
-                  </button>
-                )}
               </div>
             </div>
           )}
