@@ -66,13 +66,16 @@ export default function CarryOverAssistant({
     });
   }, [transactions, currentMonthKey]);
 
-  const onlyCurrentMonthMissed = useMemo(() => {
-    if (missedTransactions.length === 0) return false;
-    return missedTransactions.every((t) => {
-      const tDate = new Date(t.date);
-      return getMonthKey(tDate) === currentMonthKey;
-    });
-  }, [missedTransactions, currentMonthKey]);
+  // Liczy się miesiąc, nie dzień: zaległe = poprzednie miesiące, bieżący = do rozliczenia
+  const overdueTransactions = useMemo(
+    () => missedTransactions.filter((t) => getMonthKey(new Date(t.date)) < currentMonthKey),
+    [missedTransactions, currentMonthKey]
+  );
+  const currentMonthTransactions = useMemo(
+    () => missedTransactions.filter((t) => getMonthKey(new Date(t.date)) === currentMonthKey),
+    [missedTransactions, currentMonthKey]
+  );
+  const onlyCurrentMonthMissed = overdueTransactions.length === 0;
 
   const getCategoryName = (categoryId: string | null | undefined) => {
     if (!categoryId) return "-";
@@ -81,8 +84,8 @@ export default function CarryOverAssistant({
   };
 
   // 2. Sortowanie zaległych transakcji
-  const sortedMissedTransactions = useMemo(() => {
-    const list = [...missedTransactions];
+  const sortTransactions = (source: Transaction[]) => {
+    const list = [...source];
     return list.sort((a, b) => {
       let valA: any = "";
       let valB: any = "";
@@ -108,7 +111,15 @@ export default function CarryOverAssistant({
       if (valA > valB) return sortDirection === "asc" ? 1 : -1;
       return 0;
     });
-  }, [missedTransactions, sortColumn, sortDirection, categories]);
+  };
+  const sortedOverdue = useMemo(
+    () => sortTransactions(overdueTransactions),
+    [overdueTransactions, sortColumn, sortDirection, categories]
+  );
+  const sortedCurrentMonth = useMemo(
+    () => sortTransactions(currentMonthTransactions),
+    [currentMonthTransactions, sortColumn, sortDirection, categories]
+  );
 
   // 3. Filtrowanie transakcji Done dla drugiego modalu analizy
   const doneTransactionsForAnalysis = useMemo(() => {
@@ -136,9 +147,9 @@ export default function CarryOverAssistant({
   }, [analysisCell, transactions, categories]);
 
   // Oblicz sumę
-  const totalAmount = useMemo(() => {
-    return missedTransactions.reduce((sum, t) => sum + Number(t.amount), 0);
-  }, [missedTransactions]);
+  const sumAmounts = (list: Transaction[]) => list.reduce((sum, t) => sum + Number(t.amount), 0);
+  const overdueSum = useMemo(() => sumAmounts(overdueTransactions), [overdueTransactions]);
+  const currentMonthSum = useMemo(() => sumAmounts(currentMonthTransactions), [currentMonthTransactions]);
 
   // Oblicz sumy Planned i Done dla danej kategorii i miesiąca
   const categorySums = useMemo(() => {
@@ -280,14 +291,14 @@ export default function CarryOverAssistant({
   };
 
   const handleBulkMove = async () => {
-    if (!confirm(`Czy na pewno chcesz przenieść wszystkie ${missedTransactions.length} transakcji na bieżący miesiąc?`)) return;
+    if (!confirm(`Czy na pewno chcesz przenieść wszystkie ${overdueTransactions.length} zaległe transakcje na bieżący miesiąc?`)) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/transactions/bulk-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          transactionIds: missedTransactions.map((t) => t.id),
+          transactionIds: overdueTransactions.map((t) => t.id),
           updates: { date: currentMonthFirstDay },
         }),
       });
@@ -301,15 +312,15 @@ export default function CarryOverAssistant({
     }
   };
 
-  const handleBulkMarkRealized = async () => {
-    if (!confirm(`Czy na pewno chcesz oznaczyć wszystkie ${missedTransactions.length} transakcji jako zrealizowane?`)) return;
+  const handleBulkMarkRealized = async (list: Transaction[]) => {
+    if (!confirm(`Czy na pewno chcesz oznaczyć wszystkie ${list.length} transakcji jako zrealizowane?`)) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/transactions/bulk-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          transactionIds: missedTransactions.map((t) => t.id),
+          transactionIds: list.map((t) => t.id),
           updates: { is_realized: true },
         }),
       });
@@ -364,221 +375,251 @@ export default function CarryOverAssistant({
     });
   };
 
+  const renderTable = (list: Transaction[], showMove: boolean, emptyText: string) => (
+    <Table>
+      <TableHeader className="bg-neutral-950 sticky top-0 z-10">
+        <TableRow className="border-b border-neutral-800">
+          <SortHeader column="date" label="Data" />
+          <SortHeader column="category" label="Kategoria" />
+          <SortHeader column="payee" label="Odbiorca" />
+          <SortHeader column="description" label="Opis" />
+          <SortHeader column="amount" label="Kwota" />
+          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Planned</TableHead>
+          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Done</TableHead>
+          <TableHead className="text-xs text-center w-[200px] min-w-[200px]">Akcje</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {list.length > 0 ? (
+          list.map((t) => {
+            const tDate = new Date(t.date);
+            const monthKey = getMonthKey(tDate);
+            const categoryId = t.category || "";
+            const key = `${monthKey}_${categoryId}`;
+            const sums = categorySums[key] || { planned: 0, done: 0 };
+
+            return (
+              <TableRow
+                key={t.id}
+                onClick={() => handleRowClick(t)}
+                className="hover:bg-neutral-800/40 border-b border-neutral-850 cursor-pointer transition-colors group"
+              >
+                <TableCell className="text-xs text-neutral-400 whitespace-nowrap">{t.date}</TableCell>
+                <TableCell className="text-xs text-neutral-300 truncate max-w-[150px]" title={getCategoryName(t.category)}>
+                  {getCategoryName(t.category)}
+                </TableCell>
+                <TableCell className="text-xs text-neutral-200 font-medium truncate max-w-[120px]" title={t.payee || ""}>
+                  {t.payee || "-"}
+                </TableCell>
+                <TableCell className="text-xs text-neutral-400 truncate max-w-[200px]" title={t.description || ""}>
+                  {t.description || "-"}
+                </TableCell>
+                <TableCell className={`text-xs text-right font-mono font-medium ${Number(t.amount) < 0 ? "text-red-400" : "text-green-400"}`}>
+                  {formatCurrency(Number(t.amount))}zł
+                </TableCell>
+                <TableCell className={`text-xs text-right font-mono font-medium ${sums.planned < 0 ? "text-red-400" : "text-green-400"}`}>
+                  {formatCurrency(sums.planned)}zł
+                </TableCell>
+                <TableCell className={`text-xs text-right font-mono font-medium ${sums.done < 0 ? "text-red-400" : "text-green-400"}`}>
+                  {formatCurrency(sums.done)}zł
+                </TableCell>
+                <TableCell className="py-2 w-[200px] min-w-[200px] whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-1.5 pr-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRowClick(t);
+                      }}
+                      title="Analizuj powiązane transakcje rzeczywiste (Done)"
+                      className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Done
+                    </Button>
+                    {showMove && (
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={(e) => handleMoveToCurrentMonth(t, e)}
+                        disabled={isSubmitting}
+                        title="Przenieś na bieżący miesiąc"
+                        className="h-7 w-7 border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 text-neutral-300 hover:text-white"
+                      >
+                        <Calendar className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={(e) => handleMarkRealized(t, e)}
+                      disabled={isSubmitting}
+                      title="Oznacz jako zrealizowaną"
+                      className="h-7 w-7 border-green-900/30 hover:border-green-600 bg-green-950/20 text-green-400 hover:text-green-300"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={(e) => handleDelete(t, e)}
+                      disabled={isSubmitting}
+                      title="Usuń transakcję"
+                      className="h-7 w-7 border-red-950 hover:border-red-600 bg-red-950/20 text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })
+        ) : (
+          <TableRow>
+            <TableCell colSpan={8} className="text-center text-neutral-500 py-6 text-xs">
+              {emptyText}
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
+  );
+
+  const amountClass = (value: number) => (value < 0 ? "text-red-400 font-bold" : "text-green-400 font-bold");
+
   return (
     <>
-      {/* Baner ostrzegawczy na Dashboardzie */}
-      {missedTransactions.length > 0 && (
-        <div className="mb-6">
-          <div className={cn(
-            "border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg transition-all duration-200",
-            onlyCurrentMonthMissed
-              ? "bg-gradient-to-r from-blue-950/40 via-slate-900/40 to-neutral-900/90 border-blue-500/20 shadow-blue-950/5"
-              : "bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-neutral-900/90 border-amber-500/30 shadow-orange-950/10"
-          )}>
-            <div className="flex items-start md:items-center gap-3">
-              <div className={cn(
-                "p-2 rounded-lg border transition-all duration-200",
-                onlyCurrentMonthMissed
-                  ? "bg-blue-500/15 text-blue-400 border-blue-500/25"
-                  : "bg-amber-500/20 text-amber-400 border-amber-500/30"
-              )}>
-                {onlyCurrentMonthMissed ? (
-                  <Info className="h-5 w-5" />
-                ) : (
-                  <AlertTriangle className="h-5 w-5" />
-                )}
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white">
-                  Wykryto zaległe transakcje zaplanowane ({missedTransactions.length})
-                </h4>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  {onlyCurrentMonthMissed
-                    ? "Masz planowane transakcje z bieżącego miesiąca, które minęły i nie zostały oznaczone jako zrealizowane. Suma: "
-                    : "Masz planowane transakcje z poprzednich miesięcy, które nie zostały oznaczone jako zrealizowane. Suma zaległości: "}
-                  <span className={totalAmount < 0 ? "text-red-400 font-bold" : "text-green-400 font-bold"}>
-                    {formatCurrency(totalAmount)}zł
-                  </span>
-                  .
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={() => handleOpenChange(true)}
-              size="sm"
-              className={cn(
-                "font-medium shadow-md hover:scale-[1.02] transition-all duration-200 shrink-0 text-white",
-                onlyCurrentMonthMissed
-                  ? "bg-blue-600 hover:bg-blue-700 shadow-blue-900/20"
-                  : "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20"
+      {/* Baner na Dashboardzie */}
+      <div className="mb-6">
+        <div className={cn(
+          "border rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg transition-all duration-200",
+          onlyCurrentMonthMissed
+            ? "bg-gradient-to-r from-blue-950/40 via-slate-900/40 to-neutral-900/90 border-blue-500/20 shadow-blue-950/5"
+            : "bg-gradient-to-r from-amber-950/80 via-orange-900/40 to-neutral-900/90 border-amber-500/30 shadow-orange-950/10"
+        )}>
+          <div className="flex items-start md:items-center gap-3">
+            <div className={cn(
+              "p-2 rounded-lg border transition-all duration-200",
+              onlyCurrentMonthMissed
+                ? "bg-blue-500/15 text-blue-400 border-blue-500/25"
+                : "bg-amber-500/20 text-amber-400 border-amber-500/30"
+            )}>
+              {onlyCurrentMonthMissed ? (
+                <Info className="h-5 w-5" />
+              ) : (
+                <AlertTriangle className="h-5 w-5" />
               )}
-            >
-              Zarządzaj zaległościami <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-white">
+                {onlyCurrentMonthMissed
+                  ? `Do rozliczenia w tym miesiącu (${currentMonthTransactions.length})`
+                  : `Wykryto zaległe transakcje zaplanowane (${overdueTransactions.length})`}
+              </h4>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                {onlyCurrentMonthMissed ? (
+                  <>
+                    Planowane transakcje z bieżącego miesiąca, jeszcze nierozliczone. Suma:{" "}
+                    <span className={amountClass(currentMonthSum)}>{formatCurrency(currentMonthSum)}zł</span>.
+                  </>
+                ) : (
+                  <>
+                    Planowane transakcje z poprzednich miesięcy, nieoznaczone jako zrealizowane. Suma zaległości:{" "}
+                    <span className={amountClass(overdueSum)}>{formatCurrency(overdueSum)}zł</span>.
+                    {currentMonthTransactions.length > 0 && (
+                      <> Do rozliczenia w tym miesiącu: {currentMonthTransactions.length}.</>
+                    )}
+                  </>
+                )}
+              </p>
+            </div>
           </div>
+          <Button
+            onClick={() => handleOpenChange(true)}
+            size="sm"
+            className={cn(
+              "font-medium shadow-md hover:scale-[1.02] transition-all duration-200 shrink-0 text-white",
+              onlyCurrentMonthMissed
+                ? "bg-blue-600 hover:bg-blue-700 shadow-blue-900/20"
+                : "bg-amber-600 hover:bg-amber-700 shadow-amber-900/20"
+            )}
+          >
+            {onlyCurrentMonthMissed ? "Rozlicz miesiąc" : "Zarządzaj zaległościami"} <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
         </div>
-      )}
+      </div>
 
-      {/* Jeśli baner się nie wyświetlił z powodu braku zaległości w przeszłości, ale użytkownik włączył filtr w ustawieniach, możemy dodać mały przycisk debug, ale w tym projekcie baner pokazuje się automatycznie jeśli zaległe > 0 */}
-
-      {/* Okno zarządzania zaległościami */}
+      {/* Okno rozliczania transakcji planowanych */}
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-6xl bg-neutral-900 border-neutral-800 text-white flex flex-col max-h-[85vh] overflow-hidden">
           <DialogHeader className="pb-2 border-b border-neutral-800 flex-shrink-0">
-            <DialogTitle className="text-lg font-bold flex items-center justify-between gap-2 text-amber-400">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5" /> Zarządzaj zaległymi transakcjami
-              </div>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2 text-amber-400">
+              <AlertTriangle className="h-5 w-5" /> Rozliczanie transakcji planowanych
             </DialogTitle>
             <DialogDescription className="text-neutral-400 text-xs">
-              Poniższe transakcje zaplanowano na ubiegłe miesiące lub bieżący, ale nie zostały oznaczone jako zrealizowane. Kliknij wiersz, aby przejrzeć rzeczywiste transakcje (Done).
+              Niezrealizowane transakcje planowane do końca {currentMonthKey}. Kliknij wiersz, aby przejrzeć rzeczywiste transakcje (Done).
             </DialogDescription>
           </DialogHeader>
 
-          {/* Opcje filtrowania (Bieżący miesiąc) */}
-          <div className="flex items-center justify-between gap-3 mb-2 mt-2 bg-neutral-950/60 p-3 rounded-lg border border-neutral-800 flex-shrink-0">
-            <div className="text-xs text-neutral-400">
-              Bieżący miesiąc systemowy: <span className="text-white font-bold">{currentMonthKey}</span>
-            </div>
-            <div className="text-xs text-neutral-500">
-              Pokazuje wszystkie niezrealizowane transakcje zaplanowane do końca {currentMonthKey}
-            </div>
-          </div>
-
-          {/* Lista transakcji */}
-          <div className="flex-1 overflow-auto py-2 min-h-[200px]">
-            <Table>
-              <TableHeader className="bg-neutral-950 sticky top-0 z-10">
-                <TableRow className="border-b border-neutral-800">
-                  <SortHeader column="date" label="Data" />
-                  <SortHeader column="category" label="Kategoria" />
-                  <SortHeader column="payee" label="Odbiorca" />
-                  <SortHeader column="description" label="Opis" />
-                  <SortHeader column="amount" label="Kwota" />
-                  <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Planned</TableHead>
-                  <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Done</TableHead>
-                  <TableHead className="text-xs text-center w-[200px] min-w-[200px]">Akcje</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedMissedTransactions.length > 0 ? (
-                  sortedMissedTransactions.map((t) => {
-                    const tDate = new Date(t.date);
-                    const monthKey = getMonthKey(tDate);
-                    const categoryId = t.category || "";
-                    const key = `${monthKey}_${categoryId}`;
-                    const sums = categorySums[key] || { planned: 0, done: 0 };
-
-                    return (
-                      <TableRow
-                        key={t.id}
-                        onClick={() => handleRowClick(t)}
-                        className="hover:bg-neutral-800/40 border-b border-neutral-850 cursor-pointer transition-colors group"
-                      >
-                        <TableCell className="text-xs text-neutral-400 whitespace-nowrap">{t.date}</TableCell>
-                        <TableCell className="text-xs text-neutral-300 truncate max-w-[150px]" title={getCategoryName(t.category)}>
-                          {getCategoryName(t.category)}
-                        </TableCell>
-                        <TableCell className="text-xs text-neutral-200 font-medium truncate max-w-[120px]" title={t.payee || ""}>
-                          {t.payee || "-"}
-                        </TableCell>
-                        <TableCell className="text-xs text-neutral-400 truncate max-w-[200px]" title={t.description || ""}>
-                          {t.description || "-"}
-                        </TableCell>
-                        <TableCell className={`text-xs text-right font-mono font-medium ${Number(t.amount) < 0 ? "text-red-400" : "text-green-400"}`}>
-                          {formatCurrency(Number(t.amount))}zł
-                        </TableCell>
-                        <TableCell className={`text-xs text-right font-mono font-medium ${sums.planned < 0 ? "text-red-400" : "text-green-400"}`}>
-                          {formatCurrency(sums.planned)}zł
-                        </TableCell>
-                        <TableCell className={`text-xs text-right font-mono font-medium ${sums.done < 0 ? "text-red-400" : "text-green-400"}`}>
-                          {formatCurrency(sums.done)}zł
-                        </TableCell>
-                        <TableCell className="py-2 w-[200px] min-w-[200px] whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5 pr-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRowClick(t);
-                              }}
-                              title="Analizuj powiązane transakcje rzeczywiste (Done)"
-                              className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
-                            >
-                              <Eye className="h-3.5 w-3.5 mr-1" /> Done
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={(e) => handleMoveToCurrentMonth(t, e)}
-                              disabled={isSubmitting}
-                              title="Przenieś na bieżący miesiąc"
-                              className="h-7 w-7 border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 text-neutral-300 hover:text-white"
-                            >
-                              <Calendar className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={(e) => handleMarkRealized(t, e)}
-                              disabled={isSubmitting}
-                              title="Oznacz jako zrealizowaną"
-                              className="h-7 w-7 border-green-900/30 hover:border-green-600 bg-green-950/20 text-green-400 hover:text-green-300"
-                            >
-                              <Check className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={(e) => handleDelete(t, e)}
-                              disabled={isSubmitting}
-                              title="Usuń transakcję"
-                              className="h-7 w-7 border-red-950 hover:border-red-600 bg-red-950/20 text-red-400 hover:text-red-300"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-neutral-500 py-10">
-                      Brak transakcji do wyświetlenia.
-                    </TableCell>
-                  </TableRow>
+          <div className="flex-1 overflow-auto py-2 min-h-[200px] space-y-6">
+            {/* Sekcja: zaległe z poprzednich miesięcy */}
+            <section>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Zaległe z poprzednich miesięcy ({overdueTransactions.length})
+                  <span className="text-xs font-normal text-neutral-400">
+                    Suma: <span className={amountClass(overdueSum)}>{formatCurrency(overdueSum)}zł</span>
+                  </span>
+                </h3>
+                {overdueTransactions.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkMarkRealized(overdueTransactions)}
+                      disabled={isSubmitting}
+                      className="text-xs border-green-800 hover:border-green-700 bg-green-950/10 text-green-400 hover:text-green-300"
+                    >
+                      Oznacz wszystkie jako zrealizowane
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleBulkMove}
+                      disabled={isSubmitting}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      Przenieś wszystkie na ten miesiąc
+                    </Button>
+                  </div>
                 )}
-              </TableBody>
-            </Table>
-          </div>
+              </div>
+              {renderTable(sortedOverdue, true, "Brak zaległych transakcji z poprzednich miesięcy.")}
+            </section>
 
-          {/* Przyciski zbiorcze / Stopka */}
-          <div className="pt-4 border-t border-neutral-800 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
-            <div className="text-xs text-neutral-400">
-              Suma zaznaczonych filtrów: <span className="font-semibold text-white">{missedTransactions.length}</span> transakcji (Suma: {formatCurrency(totalAmount)}zł)
-            </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleBulkMarkRealized}
-                disabled={isSubmitting || missedTransactions.length === 0}
-                className="flex-1 sm:flex-initial text-xs border-green-800 hover:border-green-700 bg-green-950/10 text-green-400 hover:text-green-300"
-              >
-                Oznacz wszystkie jako zrealizowane
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleBulkMove}
-                disabled={isSubmitting || missedTransactions.length === 0}
-                className="flex-1 sm:flex-initial text-xs bg-amber-600 hover:bg-amber-700 text-white"
-              >
-                Przenieś wszystkie na ten miesiąc
-              </Button>
-            </div>
+            {/* Sekcja: do rozliczenia w bieżącym miesiącu */}
+            <section>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-semibold text-blue-400 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Do rozliczenia w tym miesiącu ({currentMonthTransactions.length})
+                  <span className="text-xs font-normal text-neutral-400">
+                    Suma: <span className={amountClass(currentMonthSum)}>{formatCurrency(currentMonthSum)}zł</span>
+                  </span>
+                </h3>
+                {currentMonthTransactions.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkMarkRealized(currentMonthTransactions)}
+                    disabled={isSubmitting}
+                    className="text-xs border-green-800 hover:border-green-700 bg-green-950/10 text-green-400 hover:text-green-300"
+                  >
+                    Oznacz wszystkie jako zrealizowane
+                  </Button>
+                )}
+              </div>
+              {renderTable(sortedCurrentMonth, false, "Brak nierozliczonych transakcji w tym miesiącu.")}
+            </section>
           </div>
         </DialogContent>
       </Dialog>
