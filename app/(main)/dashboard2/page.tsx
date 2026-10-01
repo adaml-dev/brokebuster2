@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { fetchAllRows } from "@/utils/supabase/fetch-all";
 import Dashboard2Client from "./dashboard2-client";
 
 // Wyłącza cache i wymusza świeże dane przy każdym wejściu
@@ -15,9 +16,12 @@ export default async function Dashboard2Page() {
         { data: accountStatements },
         { data: allTags },
     ] = await Promise.all([
-        supabase.from("transactions").select("*, tags(*)")
-            .order("date", { ascending: false })
-            .range(0, 9999),
+        // Stronicowanie - bez niego Supabase zwraca max 1000 wierszy
+        fetchAllRows(() =>
+            supabase.from("transactions").select("*, tags(*)")
+                .order("date", { ascending: false })
+                .order("id", { ascending: true })
+        ),
         supabase.from("accounts").select("*").order("created_at", { ascending: false }),
         supabase.from("categories").select("*").order("name", { ascending: true }),
         supabase.from("account_statements").select("*").order("date", { ascending: false }),

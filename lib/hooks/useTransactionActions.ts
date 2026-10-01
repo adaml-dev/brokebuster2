@@ -4,6 +4,7 @@
  */
 
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Category, DashboardState } from "@/lib/types/dashboard";
 import { getCategoryPath } from "@/lib/utils/dashboard";
 
@@ -13,6 +14,8 @@ interface UseTransactionActionsProps {
   expandedCats: Set<string>;
   monthOffset: number;
   categoryFilter: string;
+  /** Wywoływane po udanej operacji (np. czyszczenie zaznaczenia) */
+  onSuccess?: () => void;
 }
 
 export const useTransactionActions = ({
@@ -21,7 +24,15 @@ export const useTransactionActions = ({
   expandedCats,
   monthOffset,
   categoryFilter,
+  onSuccess,
 }: UseTransactionActionsProps) => {
+  const router = useRouter();
+
+  // Odświeża dane z serwera bez przeładowania całej strony
+  const refreshData = useCallback(() => {
+    onSuccess?.();
+    router.refresh();
+  }, [onSuccess, router]);
 
   // Funkcja do zapisywania stanu przed reload
   const saveStateBeforeReload = useCallback(() => {
@@ -82,15 +93,15 @@ export const useTransactionActions = ({
 
       saveStateBeforeReload();
 
-      alert(`✅ Sukces!\n\nPrzypisano ${result.updatedCount} transakcji do kategorii:\n"${categoryPath}"\n\nStrona zostanie odświeżona.`);
+      alert(`✅ Sukces!\n\nPrzypisano ${result.updatedCount} transakcji do kategorii:\n"${categoryPath}"`);
 
-      window.location.reload();
+      refreshData();
 
     } catch (error) {
       console.error('Error assigning category:', error);
       alert(`❌ Błąd podczas przypisywania kategorii:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
     }
-  }, [categories, saveStateBeforeReload]);
+  }, [categories, saveStateBeforeReload, refreshData]);
 
   // Unlink transactions from category
   const unlinkFromCategory = useCallback(async (transactionIds: Set<string>) => {
@@ -125,15 +136,15 @@ export const useTransactionActions = ({
 
       saveStateBeforeReload();
 
-      alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.\n\nStrona zostanie odświeżona.`);
+      alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.`);
 
-      window.location.reload();
+      refreshData();
 
     } catch (error) {
       console.error('Error unlinking transactions:', error);
       alert(`❌ Błąd podczas odłączania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
     }
-  }, [saveStateBeforeReload]);
+  }, [saveStateBeforeReload, refreshData]);
 
   // Delete transactions
   const deleteTransactions = useCallback(async (transactionIds: Set<string>) => {
@@ -173,15 +184,15 @@ export const useTransactionActions = ({
 
       saveStateBeforeReload();
 
-      alert(`✅ Sukces!\n\nUsunięto ${result.deletedCount} transakcji.\n\nStrona zostanie odświeżona.`);
+      alert(`✅ Sukces!\n\nUsunięto ${result.deletedCount} transakcji.`);
 
-      window.location.reload();
+      refreshData();
 
     } catch (error) {
       console.error('Error deleting transactions:', error);
       alert(`❌ Błąd podczas usuwania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
     }
-  }, [saveStateBeforeReload]);
+  }, [saveStateBeforeReload, refreshData]);
 
   // Edit transaction
   const editTransaction = useCallback(async (
@@ -208,15 +219,15 @@ export const useTransactionActions = ({
 
       saveStateBeforeReload();
 
-      alert(`✅ Sukces!\n\nTransakcja została zaktualizowana.\n\nStrona zostanie odświeżona.`);
+      alert(`✅ Sukces!\n\nTransakcja została zaktualizowana.`);
 
-      window.location.reload();
+      refreshData();
 
     } catch (error) {
       console.error('Error updating transaction:', error);
       alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
     }
-  }, [saveStateBeforeReload]);
+  }, [saveStateBeforeReload, refreshData]);
 
   // Create transaction
   const createTransaction = useCallback(async (formData: any) => {
@@ -244,17 +255,17 @@ export const useTransactionActions = ({
 
       const count = result.count || 1;
       const message = count === 1
-        ? `✅ Sukces!\n\nTransakcja została dodana.\n\nStrona zostanie odświeżona.`
-        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).\n\nStrona zostanie odświeżona.`;
+        ? `✅ Sukces!\n\nTransakcja została dodana.`
+        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).`;
       alert(message);
 
-      window.location.reload();
+      refreshData();
 
     } catch (error) {
       console.error('Error creating transaction:', error);
       alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
     }
-  }, [saveStateBeforeReload]);
+  }, [saveStateBeforeReload, refreshData]);
 
   return {
     assignToCategory,

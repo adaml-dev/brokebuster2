@@ -26,15 +26,13 @@ import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
 import CarryOverAssistant from "@/components/dashboard/CarryOverAssistant";
 
 // Typy
-import { Transaction, Account, Category, WeightLog, Rule, AccountStatement, Tag } from "@/lib/types/dashboard";
+import { Transaction, Account, Category, AccountStatement, Tag } from "@/lib/types/dashboard";
 import { TagBadge } from "@/components/transactions/TagBadge";
 
 interface DashboardClientProps {
   transactions: Transaction[];
   accounts: Account[];
   categories: Category[];
-  weightLogs: WeightLog[];
-  rules: Rule[];
   accountStatements: AccountStatement[];
   tags: Tag[];
 }
@@ -43,8 +41,6 @@ export default function DashboardClient({
   transactions,
   accounts,
   categories,
-  weightLogs,
-  rules,
   accountStatements,
   tags,
 }: DashboardClientProps) {
@@ -105,6 +101,7 @@ export default function DashboardClient({
     expandedCats: dashboardState.expandedCats,
     monthOffset: dashboardState.monthOffset,
     categoryFilter: dashboardState.categoryFilter,
+    onSuccess: () => dashboardState.setSelectedTransactionIds(new Set()),
   });
 
   const formActions = useTransactionForms({

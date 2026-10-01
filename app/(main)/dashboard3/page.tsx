@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { fetchAllRows } from "@/utils/supabase/fetch-all";
 import Dashboard3Client from "./dashboard3-client";
 
 // Wyłącza cache i wymusza świeże dane przy każdym wejściu
@@ -12,16 +13,15 @@ export default async function Dashboard3Page() {
     { data: transactions },
     { data: accounts },
     { data: categories },
-    { data: weightLogs },
-    { data: rules },
     { data: accountStatements },
     { data: allTags },
   ] = await Promise.all([
-    supabase.from("transactions").select("*, tags(*)").order("date", { ascending: false }).range(0, 9999),
+    // Stronicowanie - bez niego Supabase zwraca max 1000 wierszy
+    fetchAllRows(() =>
+      supabase.from("transactions").select("*, tags(*)").order("date", { ascending: false }).order("id", { ascending: true })
+    ),
     supabase.from("accounts").select("*").order("created_at", { ascending: false }),
     supabase.from("categories").select("*").order("name", { ascending: true }),
-    supabase.from("adam_weight_logs").select("*").order("date", { ascending: false }),
-    supabase.from("categorization_rules").select("*"),
     supabase.from("account_statements").select("*").order("date", { ascending: false }),
     supabase.from("tags").select("*").order("name", { ascending: true }),
   ]);
@@ -31,8 +31,6 @@ export default async function Dashboard3Page() {
       transactions={transactions || []}
       accounts={accounts || []}
       categories={categories || []}
-      weightLogs={weightLogs || []}
-      rules={rules || []}
       accountStatements={accountStatements || []}
       tags={allTags || []}
     />

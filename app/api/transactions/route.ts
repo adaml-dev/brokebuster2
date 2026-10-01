@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { fetchAllRows } from "@/utils/supabase/fetch-all";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,10 +17,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*, tags(*)")
-      .order("date", { ascending: false });
+    // Stronicowanie - bez niego Supabase zwraca tylko pierwsze 1000 wierszy
+    const { data, error } = await fetchAllRows(() =>
+      supabase
+        .from("transactions")
+        .select("*, tags(*)")
+        .order("date", { ascending: false })
+        .order("id", { ascending: true })
+    );
 
     if (error) {
       console.error("Error fetching transactions:", error);
