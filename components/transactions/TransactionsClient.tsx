@@ -26,6 +26,14 @@ import CategoryMultiSelect from "./CategoryMultiSelect";
 import ColumnsMenu from "./ColumnsMenu";
 import MultiToggleGroup from "./MultiToggleGroup";
 import ExportMenu from "./ExportMenu";
+import FilterPresetsMenu from "./FilterPresetsMenu";
+import {
+  FilterPreset,
+  FilterPresetConfig,
+  getPresetBaseDate,
+  getPresetOffset,
+  stableStringify,
+} from "./filterPresets";
 import { useColumnLayout } from "./useColumnLayout";
 import {
   ColumnContext,
@@ -164,6 +172,9 @@ export default function TransactionsClient() {
 
     const newBase = new Date(presetBaseDate);
     const factor = direction === "next" ? 1 : -1;
+
+    // Avoid month overflow (e.g. 31 Oct - 1 month = 1 Oct) when shifting by months
+    if (activeDatePreset === "mc" || activeDatePreset === "kwartal") newBase.setDate(1);
 
     switch (activeDatePreset) {
       case "dzis":
@@ -583,6 +594,122 @@ export default function TransactionsClient() {
     getCategoryName,
     onToggleRealized: handleToggleRealized,
     showTagsInDescription: !columnLayout.visibleIds.includes("tags"),
+  };
+
+  // ===== FILTER PRESETS =====
+  const { data: filterPresetsData, isLoading: isFilterPresetsLoading } = useQuery({
+    queryKey: ["filter-presets"],
+    queryFn: async () => {
+      const res = await fetch("/api/filter-presets");
+      if (!res.ok) throw new Error("Failed to load filter presets");
+      return res.json();
+    },
+  });
+  const filterPresets: FilterPreset[] = filterPresetsData || [];
+
+  const currentPresetConfig: FilterPresetConfig = {
+    v: 1,
+    filters: {
+      searchRules,
+      useAbsoluteAmount,
+      linkStatus,
+      originFilter,
+      typeFilter,
+      selectedCategories,
+      excludedCategories,
+      selectedTags,
+      minAmount,
+      maxAmount,
+    },
+    date: activeDatePreset
+      ? { preset: activeDatePreset, offset: getPresetOffset(activeDatePreset, presetBaseDate, new Date()) }
+      : { from: dateFrom, to: dateTo },
+    sort: { column: sortColumn, direction: sortDirection },
+    columns: columnLayout.layout,
+    itemsPerPage,
+  };
+  const currentPresetKey = stableStringify(currentPresetConfig);
+  const activePresetId = filterPresets.find((p) => stableStringify(p.config) === currentPresetKey)?.id ?? null;
+
+  const savePresetMutation = useMutation({
+    mutationFn: async ({ id, name, config }: { id?: string; name?: string; config: FilterPresetConfig }) => {
+      const res = await fetch(id ? `/api/filter-presets/${id}` : "/api/filter-presets", {
+        method: id ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, config }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to save filter preset");
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["filter-presets"] });
+    },
+    onError: (error) => {
+      alert(`❌ Nie udało się zapisać zestawu:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+    },
+  });
+
+  const deletePresetMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/filter-presets/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete filter preset");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["filter-presets"] });
+    },
+    onError: (error) => {
+      alert(`❌ Nie udało się usunąć zestawu:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+    },
+  });
+
+  const applyFilterPreset = (preset: FilterPreset) => {
+    const { filters, date, sort, columns } = preset.config;
+
+    setSearchRules(filters.searchRules?.length ? filters.searchRules.map((r) => ({ ...r })) : [{ text: "", operator: "AND" }]);
+    setUseAbsoluteAmount(filters.useAbsoluteAmount ?? false);
+    setLinkStatus(filters.linkStatus ?? []);
+    setOriginFilter(filters.originFilter ?? []);
+    setTypeFilter(filters.typeFilter ?? []);
+    setSelectedCategories(filters.selectedCategories ?? []);
+    setExcludedCategories(filters.excludedCategories ?? []);
+    setSelectedTags(filters.selectedTags ?? []);
+    setMinAmount(filters.minAmount ?? "");
+    setMaxAmount(filters.maxAmount ?? "");
+
+    if (date && "preset" in date) {
+      const base = getPresetBaseDate(date.preset, date.offset, new Date());
+      setActiveDatePreset(date.preset);
+      setPresetBaseDate(base);
+      applyPreset(date.preset, base);
+    } else {
+      setActiveDatePreset(null);
+      setPresetBaseDate(new Date());
+      setDateFrom(date?.from ?? "");
+      setDateTo(date?.to ?? "");
+    }
+
+    if (sort) {
+      setSortColumn(sort.column);
+      setSortDirection(sort.direction);
+    }
+    if (columns) columnLayout.applyLayout(columns);
+    if (preset.config.itemsPerPage) setItemsPerPage(preset.config.itemsPerPage);
+  };
+
+  const handleSavePreset = async (name: string) => {
+    await savePresetMutation.mutateAsync({ name, config: currentPresetConfig });
+  };
+
+  const handleOverwritePreset = (preset: FilterPreset) => {
+    if (!confirm(`Nadpisać zestaw „${preset.name}” bieżącymi filtrami, datami, sortowaniem i kolumnami?`)) return;
+    savePresetMutation.mutate({ id: preset.id, config: currentPresetConfig });
+  };
+
+  const handleDeletePreset = (preset: FilterPreset) => {
+    if (!confirm(`Usunąć zestaw „${preset.name}”?`)) return;
+    deletePresetMutation.mutate(preset.id);
   };
 
   // ===== TRANSACTION SUMS =====
@@ -1265,6 +1392,15 @@ export default function TransactionsClient() {
               <Plus className="h-4 w-4 mr-2" />
               Add
             </Button>
+            <FilterPresetsMenu
+              presets={filterPresets}
+              activePresetId={activePresetId}
+              isLoading={isFilterPresetsLoading}
+              onApply={applyFilterPreset}
+              onSave={handleSavePreset}
+              onOverwrite={handleOverwritePreset}
+              onDelete={handleDeletePreset}
+            />
             <ColumnsMenu
               columns={TRANSACTION_COLUMNS}
               order={columnLayout.order}

@@ -10,7 +10,7 @@ export interface ColumnSizing {
   defaultHidden?: boolean;
 }
 
-interface StoredLayout {
+export interface StoredLayout {
   order: string[];
   hidden: string[];
   // Columns with an entry here have a manual width; the rest are auto-fitted to content
@@ -59,27 +59,32 @@ export function useColumnLayout(
   const [autoWidths, setAutoWidths] = useState<Record<string, number>>({});
   const resizingRef = useRef(false);
 
+  // Drops unknown columns and appends columns missing from an older saved layout
+  const normalizeLayout = useCallback(
+    (parsed: Partial<StoredLayout>): StoredLayout => {
+      const order = (parsed.order ?? []).filter((id) => byId[id]);
+      columns.forEach((c) => {
+        if (!order.includes(c.id)) order.push(c.id);
+      });
+      const widths: Record<string, number> = {};
+      Object.entries(parsed.widths ?? {}).forEach(([id, w]) => {
+        if (byId[id] && typeof w === "number") widths[id] = w;
+      });
+      return { order, hidden: (parsed.hidden ?? []).filter((id) => byId[id]), widths };
+    },
+    [byId, columns]
+  );
+
   // Load saved layout (after mount, to keep SSR markup identical)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<StoredLayout>;
-        const order = (parsed.order ?? []).filter((id) => byId[id]);
-        columns.forEach((c) => {
-          if (!order.includes(c.id)) order.push(c.id);
-        });
-        const widths: Record<string, number> = {};
-        Object.entries(parsed.widths ?? {}).forEach(([id, w]) => {
-          if (byId[id] && typeof w === "number") widths[id] = w;
-        });
-        setLayout({ order, hidden: (parsed.hidden ?? []).filter((id) => byId[id]), widths });
-      }
+      if (raw) setLayout(normalizeLayout(JSON.parse(raw)));
     } catch {
       // Ignore unavailable or corrupted storage
     }
     setLoaded(true);
-  }, [byId, columns, storageKey]);
+  }, [normalizeLayout, storageKey]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -145,6 +150,9 @@ export function useColumnLayout(
 
   const reset = () => setLayout(defaults);
 
+  // Applies a layout saved elsewhere (e.g. in a filter preset)
+  const applyLayout = (saved: Partial<StoredLayout>) => setLayout(normalizeLayout(saved));
+
   const startResize = (id: string, e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -182,6 +190,8 @@ export function useColumnLayout(
   const totalWidth = visibleIds.reduce((sum, id) => sum + widthOf(id), 0);
 
   return {
+    layout,
+    applyLayout,
     order: layout.order,
     hidden: layout.hidden,
     visibleIds,
