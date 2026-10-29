@@ -1,5 +1,7 @@
 "use client";
 
+import { notifyError } from "@/lib/notify";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Plus, Search, Trash2, Edit2, X, Check, Loader2 } from "lucide-react";
@@ -64,24 +66,24 @@ export default function RulesManagement({ rules, categories, onRulesChange }: Ru
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Czy na pewno chcesz usunąć tę regułę?")) return;
+        if (!(await confirmAction({ title: "Usunąć tę regułę?", confirmLabel: "Usuń", destructive: true }))) return;
 
         try {
             const res = await fetch(`/api/categorization-rules/${id}`, { method: "DELETE" });
             if (res.ok) {
                 onRulesChange();
             } else {
-                alert("Błąd podczas usuwania reguły.");
+                notifyError("Błąd podczas usuwania reguły.");
             }
         } catch (error) {
             console.error(error);
-            alert("Wystąpił błąd.");
+            notifyError("Wystąpił błąd.");
         }
     };
 
     const handleSubmit = async () => {
         if (!formData.keyword || !formData.category_id) {
-            alert("Słowo kluczowe i kategoria są wymagane.");
+            notifyError("Słowo kluczowe i kategoria są wymagane.");
             return;
         }
 
@@ -103,11 +105,11 @@ export default function RulesManagement({ rules, categories, onRulesChange }: Ru
                 onRulesChange();
             } else {
                 const err = await res.json();
-                alert(`Błąd: ${err.error || "Nieznany błąd"}`);
+                notifyError(`Błąd: ${err.error || "Nieznany błąd"}`);
             }
         } catch (error) {
             console.error(error);
-            alert("Wystąpił błąd.");
+            notifyError("Wystąpił błąd.");
         } finally {
             setIsSubmitting(false);
         }
@@ -225,8 +227,8 @@ export default function RulesManagement({ rules, categories, onRulesChange }: Ru
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                    <SelectItem value="payee">Odbiorca (Payee)</SelectItem>
-                                    <SelectItem value="description">Opis (Description)</SelectItem>
+                                    <SelectItem value="payee">Odbiorca</SelectItem>
+                                    <SelectItem value="description">Opis</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

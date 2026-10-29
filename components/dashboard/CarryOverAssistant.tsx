@@ -1,5 +1,7 @@
 "use client";
 
+import { notifyError } from "@/lib/notify";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 import React, { useState, useMemo } from "react";
 import { AlertTriangle, Calendar, Check, Trash2, ArrowRight, X, Eye, Info, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -234,7 +236,7 @@ export default function CarryOverAssistant({
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas przenoszenia transakcji");
+      notifyError("Błąd podczas przenoszenia transakcji");
     } finally {
       setIsSubmitting(false);
     }
@@ -259,7 +261,7 @@ export default function CarryOverAssistant({
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas oznaczania transakcji");
+      notifyError("Błąd podczas oznaczania transakcji");
     } finally {
       setIsSubmitting(false);
     }
@@ -267,7 +269,7 @@ export default function CarryOverAssistant({
 
   const handleDelete = async (t: Transaction, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!confirm(`Czy na pewno chcesz usunąć zaplanowaną transakcję: ${t.payee || "-"} (${t.amount}zł)?`)) return;
+    if (!(await confirmAction({ title: "Usunąć zaplanowaną transakcję?", description: `${t.payee || "-"} (${t.amount} zł)`, confirmLabel: "Usuń", destructive: true }))) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/transactions/delete", {
@@ -284,14 +286,14 @@ export default function CarryOverAssistant({
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas usuwania transakcji");
+      notifyError("Błąd podczas usuwania transakcji");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBulkMove = async () => {
-    if (!confirm(`Czy na pewno chcesz przenieść wszystkie ${overdueTransactions.length} zaległe transakcje na bieżący miesiąc?`)) return;
+    if (!(await confirmAction({ title: `Przenieść ${overdueTransactions.length} zaległych transakcji na bieżący miesiąc?`, confirmLabel: "Przenieś" }))) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/transactions/bulk-update", {
@@ -306,14 +308,14 @@ export default function CarryOverAssistant({
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas zbiorczego przenoszenia transakcji");
+      notifyError("Błąd podczas zbiorczego przenoszenia transakcji");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBulkMarkRealized = async (list: Transaction[]) => {
-    if (!confirm(`Czy na pewno chcesz oznaczyć wszystkie ${list.length} transakcji jako zrealizowane?`)) return;
+    if (!(await confirmAction({ title: `Oznaczyć ${list.length} transakcji jako zrealizowane?`, confirmLabel: "Oznacz" }))) return;
     setIsSubmitting(true);
     try {
       const res = await fetch("/api/transactions/bulk-update", {
@@ -328,7 +330,7 @@ export default function CarryOverAssistant({
       if (onRefresh) onRefresh();
     } catch (err) {
       console.error(err);
-      alert("Błąd podczas zbiorczego oznaczania transakcji");
+      notifyError("Błąd podczas zbiorczego oznaczania transakcji");
     } finally {
       setIsSubmitting(false);
     }
@@ -384,8 +386,8 @@ export default function CarryOverAssistant({
           <SortHeader column="payee" label="Odbiorca" />
           <SortHeader column="description" label="Opis" />
           <SortHeader column="amount" label="Kwota" />
-          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Planned</TableHead>
-          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma Done</TableHead>
+          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma planowanych</TableHead>
+          <TableHead className="text-xs text-right whitespace-nowrap text-neutral-400">Suma dokonanych</TableHead>
           <TableHead className="text-xs text-center w-[200px] min-w-[200px]">Akcje</TableHead>
         </TableRow>
       </TableHeader>
@@ -435,7 +437,7 @@ export default function CarryOverAssistant({
                       title="Analizuj powiązane transakcje rzeczywiste (Done)"
                       className="h-7 px-2 text-xs border-neutral-700 bg-neutral-800 text-neutral-300 hover:text-white"
                     >
-                      <Eye className="h-3.5 w-3.5 mr-1" /> Done
+                      <Eye className="h-3.5 w-3.5 mr-1" /> Dokonane
                     </Button>
                     {showMove && (
                       <Button
@@ -629,7 +631,7 @@ export default function CarryOverAssistant({
         <DialogContent className="max-w-3xl bg-neutral-950 border-neutral-800 text-white flex flex-col max-h-[75vh] overflow-hidden">
           <DialogHeader className="pb-3 border-b border-neutral-800 flex-shrink-0">
             <DialogTitle className="text-md font-bold flex items-center gap-2 text-blue-400">
-              <Search className="h-4 w-4" /> Analiza transakcji rzeczywistych (Done)
+              <Search className="h-4 w-4" /> Analiza transakcji dokonanych
             </DialogTitle>
             <DialogDescription className="text-neutral-400 text-xs mt-1">
               Przegląd rzeczywistych transakcji w kategorii <span className="text-blue-300 font-semibold">{analysisCell?.categoryName}</span> w miesiącu <span className="text-blue-300 font-semibold">{analysisCell?.monthKey}</span>.
@@ -640,7 +642,7 @@ export default function CarryOverAssistant({
           {analysisCell && (
             <div className="bg-amber-950/20 border border-amber-500/20 p-3 rounded-lg text-xs flex flex-col gap-2 flex-shrink-0">
               <div className="text-amber-400 font-semibold flex items-center gap-1.5">
-                <Info className="h-3.5 w-3.5" /> Analizowana transakcja zaplanowana (Planned):
+                <Info className="h-3.5 w-3.5" /> Analizowana transakcja planowana:
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-neutral-300">
                 <div>Data planowana: <span className="text-white font-medium">{analysisCell.transaction.date}</span></div>

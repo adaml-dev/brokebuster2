@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { Toaster } from "@/components/ui/toaster";
+import { ConfirmDialogHost } from "@/components/ui/confirm-dialog";
 import { SettingsProvider } from "@/components/settings/SettingsContext";
 import { getUserSettings } from "@/app/actions/settings-actions";
 import { QueryProvider } from "@/components/providers/QueryProvider";
@@ -50,6 +51,7 @@ export default async function MainLayout({
             </main>
           </div>
           <Toaster />
+          <ConfirmDialogHost />
         </div>
       </QueryProvider>
     </SettingsProvider>

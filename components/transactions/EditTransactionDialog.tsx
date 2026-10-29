@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Category, Transaction } from "@/lib/types/dashboard";
+import { notifyError, notifySuccess } from "@/lib/notify";
 import { isLeafCategory } from "@/lib/utils/dashboard";
 import { TagMultiSelect } from "./TagMultiSelect";
 
@@ -96,10 +97,11 @@ export default function EditTransactionDialog({
       if (!res.ok) throw new Error("Failed to update transaction");
 
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      notifySuccess("Transakcja została zaktualizowana");
       onClose();
     } catch (error) {
       console.error("Error updating transaction:", error);
-      alert("Błąd podczas aktualizacji transakcji");
+      notifyError("Nie udało się zaktualizować transakcji", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -143,7 +145,7 @@ export default function EditTransactionDialog({
           </div>
 
           <div>
-            <Label htmlFor="edit-payee">Payee</Label>
+            <Label htmlFor="edit-payee">Odbiorca</Label>
             <Input
               id="edit-payee"
               value={formData.payee}
@@ -194,7 +196,7 @@ export default function EditTransactionDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cash">Gotówka</SelectItem>
                   <SelectItem value="mbank">mBank</SelectItem>
                   <SelectItem value="ing">ING</SelectItem>
                   <SelectItem value="pekao">Pekao</SelectItem>
@@ -222,8 +224,8 @@ export default function EditTransactionDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="done">Done</SelectItem>
-                <SelectItem value="planned">Planned</SelectItem>
+                <SelectItem value="done">Dokonana</SelectItem>
+                <SelectItem value="planned">Planowana</SelectItem>
               </SelectContent>
             </Select>
           </div>

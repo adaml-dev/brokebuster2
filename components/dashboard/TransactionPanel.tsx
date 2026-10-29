@@ -200,9 +200,9 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
               <span className="text-xs text-neutral-300">Zaznaczono: <span className="font-bold text-blue-400">{selectedTransactionIds.size}</span></span>
             </div>
             <div className="flex items-stretch gap-2">
-              <Button onClick={onUnlinkFromCategory} size="sm" className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation h-9 px-2 text-xs">Unlink</Button>
-              <Button onClick={onDeleteTransactions} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white touch-manipulation h-9 px-2 text-xs">Delete</Button>
-              <Button onClick={onEditTransactions} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white touch-manipulation h-9 px-2 text-xs">Edit</Button>
+              <Button onClick={onUnlinkFromCategory} size="sm" className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white touch-manipulation h-9 px-2 text-xs">Odłącz</Button>
+              <Button onClick={onDeleteTransactions} size="sm" className="flex-1 bg-red-600 hover:bg-red-700 text-white touch-manipulation h-9 px-2 text-xs">Usuń</Button>
+              <Button onClick={onEditTransactions} size="sm" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white touch-manipulation h-9 px-2 text-xs">Edytuj</Button>
             </div>
           </div>
         )}
@@ -337,9 +337,9 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
               </p>
             </div>
             <div className="text-xs flex gap-3 items-center whitespace-nowrap">
-              <span className="text-green-400 font-semibold">{formatCurrency(clickedCell.doneSum)}zł Done ({clickedCell.doneCount})</span>
+              <span className="text-green-400 font-semibold">{formatCurrency(clickedCell.doneSum)}zł dokonane ({clickedCell.doneCount})</span>
               <span className="text-neutral-500">|</span>
-              <span className="text-yellow-400 font-semibold">{formatCurrency(clickedCell.plannedSum)}zł Planned ({clickedCell.plannedCount})</span>
+              <span className="text-yellow-400 font-semibold">{formatCurrency(clickedCell.plannedSum)}zł planowane ({clickedCell.plannedCount})</span>
             </div>
           </div>
 
@@ -363,8 +363,8 @@ export const TransactionPanel: React.FC<TransactionPanelProps> = ({
             <p className="text-sm text-white font-semibold">
               <span className="text-neutral-400">{clickedCell.monthKey}:</span>{' '}
               <span className="text-blue-400">{clickedCell.categoryPath.join(' / ')}</span> ={' '}
-              <span className="text-green-400">{formatCurrency(clickedCell.doneSum)}zł Done ({clickedCell.doneCount}tr)</span> |{' '}
-              <span className="text-yellow-400">{formatCurrency(clickedCell.plannedSum)}zł Planned ({clickedCell.plannedCount}tr)</span>
+              <span className="text-green-400">{formatCurrency(clickedCell.doneSum)}zł dokonane ({clickedCell.doneCount} tr.)</span> |{' '}
+              <span className="text-yellow-400">{formatCurrency(clickedCell.plannedSum)}zł planowane ({clickedCell.plannedCount} tr.)</span>
             </p>
           </div>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyError } from "@/lib/notify";
 import React, { useState } from "react";
 import {
     Dialog,
@@ -64,11 +65,11 @@ export default function CreateRuleModal({
         setStatus?: React.Dispatch<React.SetStateAction<SectionStatus>>
     ) => {
         if (!keyword.trim()) {
-            alert("Pole słowa kluczowego nie może być puste.");
+            notifyError("Pole słowa kluczowego nie może być puste.");
             return;
         }
         if (!targetCategoryId) {
-            alert("Wybierz kategorię docelową (Sekcja 4) przed utworzeniem reguły.");
+            notifyError("Wybierz kategorię docelową (Sekcja 4) przed utworzeniem reguły.");
             return;
         }
 
@@ -89,7 +90,7 @@ export default function CreateRuleModal({
 
             if (!res.ok) {
                 const err = await res.json();
-                alert(`Błąd: ${err.error || "Nieznany błąd"}`);
+                notifyError(`Błąd: ${err.error || "Nieznany błąd"}`);
                 setStatus?.({ loading: false, success: false });
                 return;
             }
@@ -100,7 +101,7 @@ export default function CreateRuleModal({
             setTimeout(() => setStatus?.(INITIAL_STATUS), 2000);
         } catch (e) {
             console.error(e);
-            alert("Wystąpił błąd podczas tworzenia reguły.");
+            notifyError("Wystąpił błąd podczas tworzenia reguły.");
             setStatus?.({ loading: false, success: false });
         }
     };
@@ -114,11 +115,11 @@ export default function CreateRuleModal({
     const handleCreateAmountRule = async () => {
         const val = parseFloat(amountValue);
         if (isNaN(val)) {
-            alert("Podaj prawidłową kwotę.");
+            notifyError("Podaj prawidłową kwotę.");
             return;
         }
         if (!targetCategoryId) {
-            alert("Wybierz kategorię docelową (Sekcja 4) przed utworzeniem reguły.");
+            notifyError("Wybierz kategorię docelową (Sekcja 4) przed utworzeniem reguły.");
             return;
         }
         setAmountStatus({ loading: true, success: false });
@@ -136,7 +137,7 @@ export default function CreateRuleModal({
             });
             if (!res.ok) {
                 const err = await res.json();
-                alert(`Błąd: ${err.error || "Nieznany błąd"}`);
+                notifyError(`Błąd: ${err.error || "Nieznany błąd"}`);
                 setAmountStatus({ loading: false, success: false });
                 return;
             }
@@ -145,7 +146,7 @@ export default function CreateRuleModal({
             setTimeout(() => setAmountStatus(INITIAL_STATUS), 2000);
         } catch (e) {
             console.error(e);
-            alert("Wystąpił błąd podczas tworzenia reguły.");
+            notifyError("Wystąpił błąd podczas tworzenia reguły.");
             setAmountStatus({ loading: false, success: false });
         }
     };

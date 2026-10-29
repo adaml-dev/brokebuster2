@@ -38,42 +38,42 @@ export const AccountDialog = ({ isOpen, onClose, onSubmit, account }: AccountDia
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
                 <DialogHeader>
-                    <DialogTitle>{account ? "Edit Account" : "Add Account"}</DialogTitle>
+                    <DialogTitle>{account ? "Edytuj konto" : "Dodaj konto"}</DialogTitle>
                     <DialogDescription className="text-neutral-400">
-                        {account ? "Update account details." : "Create a new account to track balances."}
+                        {account ? "Zaktualizuj dane konta." : "Utwórz nowe konto, aby śledzić salda."}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="name">Account Name</Label>
+                        <Label htmlFor="name">Nazwa konta</Label>
                         <Input
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Main Bank Account"
+                            placeholder="np. Główne konto bankowe"
                             className="bg-neutral-800 border-neutral-700"
                             required
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="type">Account Type</Label>
+                        <Label htmlFor="type">Typ konta</Label>
                         <Select value={type} onValueChange={setType}>
                             <SelectTrigger className="bg-neutral-800 border-neutral-700">
-                                <SelectValue placeholder="Select type" />
+                                <SelectValue placeholder="Wybierz typ" />
                             </SelectTrigger>
                             <SelectContent className="bg-neutral-800 border-neutral-700 text-white">
-                                <SelectItem value="Bank Account">Bank Account</SelectItem>
-                                <SelectItem value="Cash">Cash</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
+                                <SelectItem value="Bank Account">Konto bankowe</SelectItem>
+                                <SelectItem value="Cash">Gotówka</SelectItem>
+                                <SelectItem value="Other">Inne</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <DialogFooter className="pt-4">
                         <Button type="button" variant="ghost" onClick={onClose}>
-                            Cancel
+                            Anuluj
                         </Button>
                         <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                            {account ? "Update Account" : "Create Account"}
+                            {account ? "Zapisz konto" : "Utwórz konto"}
                         </Button>
                     </DialogFooter>
                 </form>
@@ -102,7 +102,7 @@ export const DeleteConfirmDialog = ({ isOpen, onClose, onConfirm, title, descrip
                 </DialogHeader>
                 <DialogFooter className="pt-4">
                     <Button type="button" variant="ghost" onClick={onClose}>
-                        Cancel
+                        Anuluj
                     </Button>
                     <Button
                         type="button"
@@ -112,7 +112,7 @@ export const DeleteConfirmDialog = ({ isOpen, onClose, onConfirm, title, descrip
                             onClose();
                         }}
                     >
-                        Delete Permanently
+                        Usuń trwale
                     </Button>
                 </DialogFooter>
             </DialogContent>

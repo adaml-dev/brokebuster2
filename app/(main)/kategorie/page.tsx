@@ -1,5 +1,7 @@
 "use client";
 
+import { notifyError } from "@/lib/notify";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 import React, { useState, useMemo } from "react";
 import { useCategories, useReorderCategories, useCreateCategory, useUpdateCategory } from "@/lib/hooks/useCategories";
 import { Category } from "@/lib/types/dashboard";
@@ -175,9 +177,9 @@ export default function CategoriesPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Are you sure? This will fail if there are transactions.")) {
+        if (await confirmAction({ title: "Usunąć kategorię?", description: "Usunięcie się nie powiedzie, jeśli kategoria ma transakcje.", confirmLabel: "Usuń", destructive: true })) {
             const { error } = await supabase.from('categories').delete().eq('id', id);
-            if (error) alert("Failed to delete (ensure it is empty): " + error.message);
+            if (error) notifyError("Nie udało się usunąć kategorii (upewnij się, że jest pusta)", error.message);
             else queryClient.invalidateQueries({ queryKey: ["categories"] });
         }
     };
@@ -185,15 +187,15 @@ export default function CategoriesPage() {
     return (
         <div className="p-8 max-w-4xl mx-auto text-neutral-200">
             <div className="flex items-center justify-between mb-8">
-                <h1 className="text-3xl font-bold">Categories</h1>
+                <h1 className="text-3xl font-bold">Kategorie</h1>
                 <Button onClick={() => { setActiveParentId(null); setAddDialogOpen(true); }}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Root Category
+                    <Plus className="mr-2 h-4 w-4" /> Dodaj kategorię główną
                 </Button>
             </div>
 
             <div className="bg-neutral-950 rounded-lg border border-neutral-800 p-4 min-h-[500px]">
                 {isLoading ? (
-                    <div className="text-center p-8 text-neutral-500">Loading...</div>
+                    <div className="text-center p-8 text-neutral-500">Ładowanie...</div>
                 ) : (
                     <DndContext
                         collisionDetection={closestCenter}

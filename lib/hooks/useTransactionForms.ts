@@ -1,4 +1,5 @@
 
+import { notifyError } from "@/lib/notify";
 import { useState, useCallback } from 'react';
 import { useTransactionActions } from './useTransactionActions';
 import { Transaction, Category } from '@/lib/types/dashboard';
@@ -49,7 +50,7 @@ export const useTransactionForms = ({ transactions, categories, dashboardState }
   // === DIALOG OPEN HANDLERS ===
   const handleOpenEditDialog = useCallback((selectedTransactionIds: Set<string>) => {
     if (selectedTransactionIds.size !== 1) {
-      alert(selectedTransactionIds.size === 0
+      notifyError(selectedTransactionIds.size === 0
         ? 'Zaznacz transakcję do edycji.'
         : 'Można edytować tylko jedną transakcję na raz.'
       );

@@ -13,7 +13,7 @@ interface MultiToggleGroupProps {
 }
 
 // Looks like the Tabs filter bar, but allows selecting several options at once
-export default function MultiToggleGroup({ options, selected, onChange, columns = 3, allLabel = "All" }: MultiToggleGroupProps) {
+export default function MultiToggleGroup({ options, selected, onChange, columns = 3, allLabel = "Wszystkie" }: MultiToggleGroupProps) {
   const toggle = (value: string) => {
     const next = selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value];
     // Selecting every option is the same as "all"

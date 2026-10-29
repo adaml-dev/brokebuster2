@@ -203,7 +203,7 @@ export default function DashboardClient({
           onUnlinkFromCategory={() => transactionActions.unlinkFromCategory(dashboardState.selectedTransactionIds)}
           onDeleteTransactions={() => transactionActions.deleteTransactions(dashboardState.selectedTransactionIds)}
           onEditTransactions={() => formActions.handleOpenEditDialog(dashboardState.selectedTransactionIds)}
-          onToggleRealized={(t) => transactionActions.editTransaction(t.id, { is_realized: !t.is_realized })}
+          onToggleRealized={(t) => transactionActions.editTransaction(t.id, { is_realized: !t.is_realized }, { silent: true })}
           categories={categories}
           assignToCategoryId={dashboardState.assignToCategoryId}
           onAssignToCategoryIdChange={dashboardState.setAssignToCategoryId}

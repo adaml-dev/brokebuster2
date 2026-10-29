@@ -132,7 +132,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
           onClick={() => onCalculationModeChange('planned')}
           className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-yellow-500 transition-colors touch-manipulation ${calculationMode === 'planned' ? 'bg-yellow-900/50 border-yellow-500' : ''
             }`}
-          title="Tylko Planned"
+          title="Tylko planowane"
         >
           <CalendarClock className={`h-5 w-5 ${calculationMode === 'planned' ? 'text-yellow-400' : 'text-neutral-400'}`} />
         </Button>
@@ -143,7 +143,7 @@ export const ToolBar: React.FC<ToolBarProps> = ({
           onClick={() => onCalculationModeChange('done')}
           className={`h-8 w-8 p-0 flex-shrink-0 rounded-lg border-neutral-700 hover:bg-neutral-800 hover:border-green-500 transition-colors touch-manipulation ${calculationMode === 'done' ? 'bg-green-900 border-green-500' : ''
             }`}
-          title="Tylko Done"
+          title="Tylko dokonane"
         >
           <CheckCircle className={`h-5 w-5 ${calculationMode === 'done' ? 'text-green-400' : 'text-neutral-400'}`} />
         </Button>

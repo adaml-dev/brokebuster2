@@ -1,5 +1,6 @@
 "use client";
 
+import { notifyError, notifySuccess } from "@/lib/notify";
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Wand2, Loader2, Check, ExternalLink, Save, BookOpen, Settings2 } from "lucide-react";
@@ -87,9 +88,9 @@ export default function AutokategoryzacjeClient({
         if (result.success && result.appliedAssignments) {
             // Odświeżamy transakcje z serwera, aby mieć pewność, że dane są aktualne
             await handleRefreshTransactions();
-            alert(`Pomyślnie zaktualizowano ${result.updatedCount} transakcji.`);
+            notifySuccess(`Pomyślnie zaktualizowano ${result.updatedCount} transakcji.`);
         } else if (!result.success) {
-            alert(`Błąd: ${result.message}`);
+            notifyError(`Błąd: ${result.message}`);
         }
 
         setIsLoading(false);
@@ -184,7 +185,7 @@ export default function AutokategoryzacjeClient({
                                                     <TableHead className="w-[50px]"></TableHead>
                                                     <TableHead className="text-neutral-400">Metoda</TableHead>
                                                     <TableHead className="text-neutral-400">Data</TableHead>
-                                                    <TableHead className="text-neutral-400">Opis / Payee</TableHead>
+                                                    <TableHead className="text-neutral-400">Opis / Odbiorca</TableHead>
                                                     <TableHead className="text-right text-neutral-400">Kwota</TableHead>
                                                     <TableHead className="text-neutral-400">Proponowana kategoria</TableHead>
                                                 </TableRow>

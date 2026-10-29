@@ -837,7 +837,7 @@ export default function Dashboard2Client({
                                         <TableCell className="px-2 py-2">
                                             <div className="flex items-center">
                                                 {isDone ? (
-                                                    <div title="Zrealizowana (Done)">
+                                                    <div title="Dokonana">
                                                         <CheckCircle2
                                                             className="h-4 w-4 text-green-500"
                                                         />

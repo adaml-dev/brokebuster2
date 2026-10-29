@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Category } from "@/lib/types/dashboard";
 import { isLeafCategory } from "@/lib/utils/dashboard";
+import { notifyError, notifySuccess } from "@/lib/notify";
 
 interface BulkEditDialogProps {
   isOpen: boolean;
@@ -76,7 +77,7 @@ export default function BulkEditDialog({
       if (formData.amount) updates.amount = parseFloat(formData.amount);
 
       if (Object.keys(updates).length === 0) {
-        alert("Wybierz przynajmniej jedno pole do zmiany");
+        notifyError("Wybierz przynajmniej jedno pole do zmiany");
         setIsSubmitting(false);
         return;
       }
@@ -100,11 +101,11 @@ export default function BulkEditDialog({
 
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
-      alert(`✅ Sukces!\n\nZaktualizowano ${result.updatedCount} transakcji.`);
+      notifySuccess(`Zaktualizowano ${result.updatedCount} transakcji`);
       onClose();
     } catch (error) {
       console.error("Error bulk updating transactions:", error);
-      alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+      notifyError("Nie udało się zaktualizować transakcji", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -156,7 +157,7 @@ export default function BulkEditDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nie zmieniaj</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="cash">Gotówka</SelectItem>
                   <SelectItem value="mbank">mBank</SelectItem>
                   <SelectItem value="ing">ING</SelectItem>
                   <SelectItem value="pekao">Pekao</SelectItem>
@@ -182,8 +183,8 @@ export default function BulkEditDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nie zmieniaj</SelectItem>
-                  <SelectItem value="done">Done</SelectItem>
-                  <SelectItem value="planned">Planned</SelectItem>
+                  <SelectItem value="done">Dokonana</SelectItem>
+                  <SelectItem value="planned">Planowana</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -210,7 +211,7 @@ export default function BulkEditDialog({
           </div>
 
           <div>
-            <Label htmlFor="bulk-payee">Payee</Label>
+            <Label htmlFor="bulk-payee">Odbiorca</Label>
             <Input
               id="bulk-payee"
               value={formData.payee}

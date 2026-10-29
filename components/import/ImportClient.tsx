@@ -412,11 +412,11 @@ export default function ImportClient() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-neutral-800">
-                    <TableHead className="text-white">Date</TableHead>
-                    <TableHead className="text-white">Amount</TableHead>
-                    <TableHead className="text-white">Payee</TableHead>
-                    <TableHead className="text-white">Description</TableHead>
-                    <TableHead className="text-white">Origin</TableHead>
+                    <TableHead className="text-white">Data</TableHead>
+                    <TableHead className="text-white">Kwota</TableHead>
+                    <TableHead className="text-white">Odbiorca</TableHead>
+                    <TableHead className="text-white">Opis</TableHead>
+                    <TableHead className="text-white">Pochodzenie</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

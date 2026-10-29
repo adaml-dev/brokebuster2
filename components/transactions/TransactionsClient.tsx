@@ -22,6 +22,8 @@ import { isLeafCategory, getAllCategoryIds } from "@/lib/utils/dashboard";
 import { Category, Tag, Transaction } from "@/lib/types/dashboard";
 import { cn } from "@/lib/utils";
 import { exportTable, ExportFormat } from "@/lib/utils/exportTable";
+import { notifyError, notifySuccess } from "@/lib/notify";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 import CategoryMultiSelect from "./CategoryMultiSelect";
 import ColumnsMenu from "./ColumnsMenu";
 import MultiToggleGroup from "./MultiToggleGroup";
@@ -290,9 +292,11 @@ export default function TransactionsClient() {
       if (!res.ok) throw new Error("Failed to delete");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, ids) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      notifySuccess(ids.length === 1 ? "Transakcja została usunięta" : `Usunięto ${ids.length} transakcji`);
     },
+    onError: (error) => notifyError("Nie udało się usunąć transakcji", error),
   });
 
   const assignCategoryMutation = useMutation({
@@ -305,10 +309,12 @@ export default function TransactionsClient() {
       if (!res.ok) throw new Error("Failed to assign category");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, { transactionIds, categoryId }) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedTransactions(new Set());
+      notifySuccess(`Przypisano ${transactionIds.length} transakcji`, getCategoryName(categoryId));
     },
+    onError: (error) => notifyError("Nie udało się przypisać kategorii", error),
   });
 
   const unlinkCategoryMutation = useMutation({
@@ -321,10 +327,12 @@ export default function TransactionsClient() {
       if (!res.ok) throw new Error("Failed to unlink category");
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_result, transactionIds) => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setSelectedTransactions(new Set());
+      notifySuccess(`Odłączono ${transactionIds.length} transakcji od kategorii`);
     },
+    onError: (error) => notifyError("Nie udało się odłączyć kategorii", error),
   });
 
   const toggleRealizedMutation = useMutation({
@@ -352,7 +360,7 @@ export default function TransactionsClient() {
     },
     onError: (error, _variables, context) => {
       if (context?.previous) queryClient.setQueryData(["transactions"], context.previous);
-      alert(`❌ Nie udało się zmienić statusu realizacji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+      notifyError("Nie udało się zmienić statusu realizacji", error);
     },
   });
 
@@ -577,13 +585,28 @@ export default function TransactionsClient() {
   }, [filteredAndSortedTransactions, currentPage, itemsPerPage]);
 
   // ===== CUMULATIVE BALANCE =====
-  const transactionsWithBalance = useMemo(() => {
+  // Running total of all filtered transactions in chronological order (oldest first),
+  // so a row's value does not depend on the current sort order or page
+  const cumulativeBalanceById = useMemo(() => {
+    const chronological = [...filteredAndSortedTransactions].sort(
+      (a, b) =>
+        a.date.localeCompare(b.date) ||
+        (a.created_at ?? "").localeCompare(b.created_at ?? "") ||
+        a.id.localeCompare(b.id)
+    );
+    const balances = new Map<string, number>();
     let balance = 0;
-    return paginatedTransactions.map((t) => {
-      balance += (t.amount || 0);
-      return { ...t, cumulativeBalance: balance };
+    chronological.forEach((t) => {
+      balance += t.amount || 0;
+      balances.set(t.id, balance);
     });
-  }, [paginatedTransactions]);
+    return balances;
+  }, [filteredAndSortedTransactions]);
+
+  const transactionsWithBalance = useMemo(
+    () => paginatedTransactions.map((t) => ({ ...t, cumulativeBalance: cumulativeBalanceById.get(t.id) })),
+    [paginatedTransactions, cumulativeBalanceById]
+  );
 
   // ===== COLUMN LAYOUT =====
   const tableRef = useRef<HTMLTableElement>(null);
@@ -642,11 +665,12 @@ export default function TransactionsClient() {
       if (!res.ok) throw new Error(result.error || "Failed to save filter preset");
       return result;
     },
-    onSuccess: () => {
+    onSuccess: (preset) => {
       queryClient.invalidateQueries({ queryKey: ["filter-presets"] });
+      notifySuccess(`Zapisano zestaw „${preset.name}”`);
     },
     onError: (error) => {
-      alert(`❌ Nie udało się zapisać zestawu:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+      notifyError("Nie udało się zapisać zestawu", error);
     },
   });
 
@@ -660,7 +684,7 @@ export default function TransactionsClient() {
       queryClient.invalidateQueries({ queryKey: ["filter-presets"] });
     },
     onError: (error) => {
-      alert(`❌ Nie udało się usunąć zestawu:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+      notifyError("Nie udało się usunąć zestawu", error);
     },
   });
 
@@ -702,13 +726,23 @@ export default function TransactionsClient() {
     await savePresetMutation.mutateAsync({ name, config: currentPresetConfig });
   };
 
-  const handleOverwritePreset = (preset: FilterPreset) => {
-    if (!confirm(`Nadpisać zestaw „${preset.name}” bieżącymi filtrami, datami, sortowaniem i kolumnami?`)) return;
+  const handleOverwritePreset = async (preset: FilterPreset) => {
+    const confirmed = await confirmAction({
+      title: `Nadpisać zestaw „${preset.name}”?`,
+      description: "Zestaw dostanie bieżące filtry, daty, sortowanie i układ kolumn.",
+      confirmLabel: "Nadpisz",
+    });
+    if (!confirmed) return;
     savePresetMutation.mutate({ id: preset.id, config: currentPresetConfig });
   };
 
-  const handleDeletePreset = (preset: FilterPreset) => {
-    if (!confirm(`Usunąć zestaw „${preset.name}”?`)) return;
+  const handleDeletePreset = async (preset: FilterPreset) => {
+    const confirmed = await confirmAction({
+      title: `Usunąć zestaw „${preset.name}”?`,
+      confirmLabel: "Usuń",
+      destructive: true,
+    });
+    if (!confirmed) return;
     deletePresetMutation.mutate(preset.id);
   };
 
@@ -772,7 +806,7 @@ export default function TransactionsClient() {
 
   const handleSaveManualEntry = async () => {
     if (!manualEntryFormData.date || !manualEntryFormData.amount) {
-      alert("Data i kwota są wymagane");
+      notifyError("Data i kwota są wymagane");
       return;
     }
 
@@ -791,10 +825,7 @@ export default function TransactionsClient() {
       const result = await res.json();
       const count = result.count || 1;
 
-      alert(count === 1
-        ? "✅ Sukces!\n\nTransakcja została dodana."
-        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).`
-      );
+      notifySuccess(count === 1 ? "Transakcja została dodana" : `Dodano ${count} transakcji (seria)`);
 
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       setIsAddDialogOpen(false);
@@ -815,14 +846,18 @@ export default function TransactionsClient() {
       });
     } catch (error) {
       console.error("Error creating transaction:", error);
-      alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
+      notifyError("Nie udało się dodać transakcji", error);
     }
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    if (confirm("Czy na pewno chcesz usunąć tę transakcję?")) {
-      await deleteTransactionMutation.mutateAsync([id]);
-    }
+    const confirmed = await confirmAction({
+      title: "Usunąć tę transakcję?",
+      description: "Tej operacji nie można cofnąć.",
+      confirmLabel: "Usuń",
+      destructive: true,
+    });
+    if (confirmed) deleteTransactionMutation.mutate([id]);
   };
 
   const handleHideTransactions = (ids: string[]) => {
@@ -836,28 +871,36 @@ export default function TransactionsClient() {
   };
 
   const handleDeleteSelected = async () => {
-    if (confirm(`Czy na pewno chcesz usunąć ${selectedTransactions.size} transakcji?`)) {
-      await deleteTransactionMutation.mutateAsync(Array.from(selectedTransactions));
-      setSelectedTransactions(new Set());
-    }
+    const confirmed = await confirmAction({
+      title: `Usunąć ${selectedTransactions.size} transakcji?`,
+      description: "Tej operacji nie można cofnąć.",
+      confirmLabel: "Usuń",
+      destructive: true,
+    });
+    if (!confirmed) return;
+    deleteTransactionMutation.mutate(Array.from(selectedTransactions), {
+      onSuccess: () => setSelectedTransactions(new Set()),
+    });
   };
 
   const handleLinkToCategory = async () => {
     if (!bulkCategoryId) {
-      alert("Wybierz kategorię");
+      notifyError("Wybierz kategorię");
       return;
     }
-    await assignCategoryMutation.mutateAsync({
-      transactionIds: Array.from(selectedTransactions),
-      categoryId: bulkCategoryId,
-    });
-    setBulkCategoryId("");
-    setSelectedTransactions(new Set());
+    assignCategoryMutation.mutate(
+      { transactionIds: Array.from(selectedTransactions), categoryId: bulkCategoryId },
+      { onSuccess: () => setBulkCategoryId("") }
+    );
   };
 
   const handleUnlinkFromCategory = async () => {
-    await unlinkCategoryMutation.mutateAsync(Array.from(selectedTransactions));
-    setSelectedTransactions(new Set());
+    const confirmed = await confirmAction({
+      title: `Odłączyć ${selectedTransactions.size} transakcji od kategorii?`,
+      description: "Transakcje staną się nieprzypisane.",
+      confirmLabel: "Odłącz",
+    });
+    if (confirmed) unlinkCategoryMutation.mutate(Array.from(selectedTransactions));
   };
 
   const handleEditTransaction = (transaction: Transaction) => {
@@ -886,13 +929,13 @@ export default function TransactionsClient() {
     setIsBulkEditDialogOpen(true);
   };
 
-  // Exports all filtered rows (not just the current page) with the visible columns in their current order
+  // Exports all filtered rows (not just the current page) with the visible columns in their current order;
+  // the balance column uses the same chronological running total as the table
   const handleExport = (format: ExportFormat) => {
-    let balance = 0;
-    const rows: TransactionRow[] = filteredAndSortedTransactions.map((t) => {
-      balance += t.amount || 0;
-      return { ...t, cumulativeBalance: balance };
-    });
+    const rows: TransactionRow[] = filteredAndSortedTransactions.map((t) => ({
+      ...t,
+      cumulativeBalance: cumulativeBalanceById.get(t.id),
+    }));
 
     const columns = visibleColumns.map((col) => ({
       header: col.label,
@@ -916,7 +959,7 @@ export default function TransactionsClient() {
           setIsFiltersSheetOpen(false);
         }} className="w-full" size="sm">
           <Plus className="h-4 w-4 mr-2" />
-          Add Transaction
+          Dodaj transakcję
         </Button>
 
         <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
@@ -1043,8 +1086,8 @@ export default function TransactionsClient() {
                 selected={linkStatus}
                 onChange={setLinkStatus}
                 options={[
-                  { value: "linked", label: "Linked" },
-                  { value: "unlinked", label: "Unlinked" },
+                  { value: "linked", label: "Z kategorią" },
+                  { value: "unlinked", label: "Bez kategorii" },
                 ]}
               />
             </div>
@@ -1059,8 +1102,8 @@ export default function TransactionsClient() {
                   { value: "mbank", label: "mBank" },
                   { value: "ing", label: "ING" },
                   { value: "pekao", label: "Pekao" },
-                  { value: "cash", label: "Cash" },
-                  { value: "unknown", label: "Unknown" },
+                  { value: "cash", label: "Gotówka" },
+                  { value: "unknown", label: "Nieznane" },
                 ]}
               />
             </div>
@@ -1073,9 +1116,9 @@ export default function TransactionsClient() {
                 onChange={setTypeFilter}
                 columns={2}
                 options={[
-                  { value: "done", label: "Done" },
-                  { value: "planned_realized", label: "Planned · zrealiz." },
-                  { value: "planned_unrealized", label: "Planned · niezrealiz." },
+                  { value: "done", label: "Dokonane" },
+                  { value: "planned_realized", label: "Plan. · zrealiz." },
+                  { value: "planned_unrealized", label: "Plan. · niezrealiz." },
                 ]}
               />
             </div>
@@ -1383,14 +1426,14 @@ export default function TransactionsClient() {
                 }}
               >
                 <SheetHeader className="mb-4">
-                  <SheetTitle className="text-white">Filtry i Kontrole</SheetTitle>
+                  <SheetTitle className="text-white">Filtry</SheetTitle>
                 </SheetHeader>
                 {FilterContent}
               </SheetContent>
             </Sheet>
             <Button onClick={() => setIsAddDialogOpen(true)} className="flex-1 sm:flex-initial sm:w-36">
               <Plus className="h-4 w-4 mr-2" />
-              Add
+              Dodaj
             </Button>
             <FilterPresetsMenu
               presets={filterPresets}
@@ -1448,15 +1491,15 @@ export default function TransactionsClient() {
               </Select>
               <Button onClick={handleLinkToCategory} size="sm" variant="default">
                 <LinkIcon className="h-4 w-4 mr-1" />
-                Link to Category
+                Przypisz kategorię
               </Button>
               <Button onClick={handleUnlinkFromCategory} size="sm" variant="outline">
                 <Unlink className="h-4 w-4 mr-1" />
-                Unlink
+                Odłącz
               </Button>
               <Button onClick={handleBulkEdit} size="sm" variant="secondary">
                 <Edit2 className="h-4 w-4 mr-1" />
-                Bulk Edit
+                Edycja masowa
               </Button>
               <Button onClick={() => handleHideTransactions(Array.from(selectedTransactions))} size="sm" variant="outline">
                 <EyeOff className="h-4 w-4 mr-1" />
@@ -1464,10 +1507,10 @@ export default function TransactionsClient() {
               </Button>
               <Button onClick={handleDeleteSelected} size="sm" variant="destructive">
                 <Trash2 className="h-4 w-4 mr-1" />
-                Delete
+                Usuń
               </Button>
               <Button onClick={() => setSelectedTransactions(new Set())} size="sm" variant="ghost">
-                Clear Selection
+                Odznacz
               </Button>
             </div>
           )}
@@ -1500,6 +1543,7 @@ export default function TransactionsClient() {
                     <TableHead
                       key={col.id}
                       data-col={col.id}
+                      title={col.headerTitle}
                       className={cn(
                         "relative whitespace-nowrap select-none",
                         col.sortKey && "cursor-pointer",
@@ -1594,13 +1638,13 @@ export default function TransactionsClient() {
           {/* Footer */}
           <div className="mt-4 flex items-center justify-between">
             <div className="flex gap-4 text-sm">
-              <span>Planned: <span className="font-medium">{formatAmount(transactionSums.planned)}</span></span>
-              <span>Done: <span className="font-medium">{formatAmount(transactionSums.done)}</span></span>
-              <span>Total: <span className="font-medium">{formatAmount(transactionSums.total)}</span></span>
+              <span>Planowane: <span className="font-medium">{formatAmount(transactionSums.planned)}</span></span>
+              <span>Dokonane: <span className="font-medium">{formatAmount(transactionSums.done)}</span></span>
+              <span>Razem: <span className="font-medium">{formatAmount(transactionSums.total)}</span></span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm text-neutral-400">
-                {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredAndSortedTransactions.length)} of {filteredAndSortedTransactions.length}
+                {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredAndSortedTransactions.length)} z {filteredAndSortedTransactions.length}
               </span>
               <Select value={String(itemsPerPage)} onValueChange={(v) => setItemsPerPage(Number(v))}>
                 <SelectTrigger className="w-24">

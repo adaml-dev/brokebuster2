@@ -43,14 +43,14 @@ export const StatementDialog = ({ isOpen, onClose, onSubmit, statement, accountI
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
                 <DialogHeader>
-                    <DialogTitle>{statement ? "Edit Statement" : "Add Statement"}</DialogTitle>
+                    <DialogTitle>{statement ? "Edytuj stan konta" : "Dodaj stan konta"}</DialogTitle>
                     <DialogDescription className="text-neutral-400">
-                        {statement ? "Update statement balance or date." : "Record a new balance for this account."}
+                        {statement ? "Zaktualizuj saldo lub datę stanu konta." : "Zapisz nowe saldo dla tego konta."}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="date">Date</Label>
+                        <Label htmlFor="date">Data</Label>
                         <Input
                             id="date"
                             type="date"
@@ -61,7 +61,7 @@ export const StatementDialog = ({ isOpen, onClose, onSubmit, statement, accountI
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="balance">Balance</Label>
+                        <Label htmlFor="balance">Saldo</Label>
                         <Input
                             id="balance"
                             type="number"
@@ -75,10 +75,10 @@ export const StatementDialog = ({ isOpen, onClose, onSubmit, statement, accountI
                     </div>
                     <DialogFooter className="pt-4">
                         <Button type="button" variant="ghost" onClick={onClose}>
-                            Cancel
+                            Anuluj
                         </Button>
                         <Button type="submit" className="bg-green-600 hover:bg-green-700">
-                            {statement ? "Update Statement" : "Add Statement"}
+                            {statement ? "Zapisz stan konta" : "Dodaj stan konta"}
                         </Button>
                     </DialogFooter>
                 </form>

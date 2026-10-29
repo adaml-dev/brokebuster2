@@ -34,6 +34,12 @@ import { Account, AccountStatement } from "@/lib/types/dashboard";
 import { AccountDialog, DeleteConfirmDialog } from "./AccountDialogs";
 import { StatementDialog } from "./StatementDialogs";
 
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+    "Bank Account": "Konto bankowe",
+    Cash: "Gotówka",
+    Other: "Inne",
+};
+
 export default function ReconciliationClient() {
     const queryClient = useQueryClient();
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -276,15 +282,15 @@ export default function ReconciliationClient() {
                 <Card className="bg-neutral-900 border-neutral-800 flex-1">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div>
-                            <CardTitle className="text-xl">Accounts</CardTitle>
-                            <CardDescription className="text-neutral-400">Select an account to manage statements</CardDescription>
+                            <CardTitle className="text-xl">Konta</CardTitle>
+                            <CardDescription className="text-neutral-400">Wybierz konto, aby zarządzać stanami konta</CardDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button
                                 variant="outline"
                                 size="icon"
                                 onClick={() => setShowArchived(!showArchived)}
-                                title={showArchived ? "Hide Archived" : "Show Archived"}
+                                title={showArchived ? "Ukryj zarchiwizowane" : "Pokaż zarchiwizowane"}
                                 className="border-neutral-700 hover:bg-neutral-800"
                             >
                                 {showArchived ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -297,7 +303,7 @@ export default function ReconciliationClient() {
                                 className="bg-green-600 hover:bg-green-700"
                             >
                                 <Plus className="h-4 w-4 mr-2" />
-                                Add Account
+                                Dodaj konto
                             </Button>
                         </div>
                     </CardHeader>
@@ -311,7 +317,7 @@ export default function ReconciliationClient() {
                                             onClick={() => handleToggleAccountSort('name')}
                                         >
                                             <div className="flex items-center gap-2">
-                                                Account Name
+                                                Nazwa konta
                                                 <ArrowUpDown className="h-3 w-3" />
                                             </div>
                                         </TableHead>
@@ -320,7 +326,7 @@ export default function ReconciliationClient() {
                                             onClick={() => handleToggleAccountSort('type')}
                                         >
                                             <div className="flex items-center gap-2">
-                                                Type
+                                                Typ
                                                 <ArrowUpDown className="h-3 w-3" />
                                             </div>
                                         </TableHead>
@@ -329,7 +335,7 @@ export default function ReconciliationClient() {
                                             onClick={() => handleToggleAccountSort('latest_balance')}
                                         >
                                             <div className="flex items-center justify-end gap-2">
-                                                Latest Balance
+                                                Ostatnie saldo
                                                 <ArrowUpDown className="h-3 w-3" />
                                             </div>
                                         </TableHead>
@@ -338,11 +344,11 @@ export default function ReconciliationClient() {
                                             onClick={() => handleToggleAccountSort('last_updated')}
                                         >
                                             <div className="flex items-center justify-end gap-2">
-                                                Last Updated
+                                                Ostatnia aktualizacja
                                                 <ArrowUpDown className="h-3 w-3" />
                                             </div>
                                         </TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
+                                        <TableHead className="text-right">Akcje</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -357,7 +363,7 @@ export default function ReconciliationClient() {
                                             onClick={() => setSelectedAccountId(account.id)}
                                         >
                                             <TableCell className="font-medium">{account.name}</TableCell>
-                                            <TableCell className="text-neutral-400 text-xs">{account.type}</TableCell>
+                                            <TableCell className="text-neutral-400 text-xs">{ACCOUNT_TYPE_LABELS[account.type] ?? account.type}</TableCell>
                                             <TableCell className="text-right font-mono">
                                                 {formatCurrency(account.latest_balance)}
                                             </TableCell>
@@ -403,7 +409,7 @@ export default function ReconciliationClient() {
                                     {filteredAccounts.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center text-neutral-500">
-                                                No accounts found.
+                                                Brak kont.
                                             </TableCell>
                                         </TableRow>
                                     )}
@@ -413,7 +419,7 @@ export default function ReconciliationClient() {
                     </CardContent>
                     <div className="mt-auto border-t border-neutral-800 p-4 bg-neutral-950/30">
                         <div className="flex justify-between items-center text-sm font-semibold">
-                            <span className="text-neutral-400">Total Balance:</span>
+                            <span className="text-neutral-400">Saldo łączne:</span>
                             <span className="text-xl text-green-400 font-mono">{formatCurrency(totalBalance)}</span>
                         </div>
                     </div>
@@ -426,10 +432,10 @@ export default function ReconciliationClient() {
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                         <div>
                             <CardTitle className="text-xl">
-                                {selectedAccount ? `${selectedAccount.name} - Statements` : "Account Statements"}
+                                {selectedAccount ? `${selectedAccount.name} - Stany konta` : "Stany konta"}
                             </CardTitle>
                             <CardDescription className="text-neutral-400">
-                                {selectedAccount ? "Manage historical balance records" : "Select an account to view balance history"}
+                                {selectedAccount ? "Zarządzaj historią sald" : "Wybierz konto, aby zobaczyć historię sald"}
                             </CardDescription>
                         </div>
                         {selectedAccountId && (
@@ -441,7 +447,7 @@ export default function ReconciliationClient() {
                                     className="border-neutral-700 bg-neutral-800"
                                 >
                                     {viewMode === "monthly" ? <TrendingUp className="h-4 w-4 mr-2" /> : <History className="h-4 w-4 mr-2" />}
-                                    {viewMode === "monthly" ? "Monthly View" : "Daily View"}
+                                    {viewMode === "monthly" ? "Widok miesięczny" : "Widok dzienny"}
                                 </Button>
                                 <Button
                                     onClick={() => {
@@ -451,7 +457,7 @@ export default function ReconciliationClient() {
                                     className="bg-green-600 hover:bg-green-700"
                                 >
                                     <Plus className="h-4 w-4 mr-2" />
-                                    Add
+                                    Dodaj
                                 </Button>
                             </div>
                         )}
@@ -459,7 +465,7 @@ export default function ReconciliationClient() {
                     <CardContent>
                         {!selectedAccountId ? (
                             <div className="flex flex-col items-center justify-center h-64 text-neutral-500 border-2 border-dashed border-neutral-800 rounded-lg">
-                                <p>Select an account from the left panel</p>
+                                <p>Wybierz konto z panelu po lewej</p>
                             </div>
                         ) : (
                             <div className="rounded-md border border-neutral-800 overflow-hidden">
@@ -471,7 +477,7 @@ export default function ReconciliationClient() {
                                                 onClick={() => handleToggleStatementSort('date')}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    Date {viewMode === "monthly" && "(Latest in Month)"}
+                                                    Data {viewMode === "monthly" && "(ostatni w miesiącu)"}
                                                     <ArrowUpDown className="h-3 w-3" />
                                                 </div>
                                             </TableHead>
@@ -480,11 +486,11 @@ export default function ReconciliationClient() {
                                                 onClick={() => handleToggleStatementSort('balance')}
                                             >
                                                 <div className="flex items-center justify-end gap-2">
-                                                    Balance
+                                                    Saldo
                                                     <ArrowUpDown className="h-3 w-3" />
                                                 </div>
                                             </TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
+                                            <TableHead className="text-right">Akcje</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -529,7 +535,7 @@ export default function ReconciliationClient() {
                                         {accountStatements.length === 0 && (
                                             <TableRow>
                                                 <TableCell colSpan={3} className="h-24 text-center text-neutral-500">
-                                                    No statements found for this account.
+                                                    Brak stanów konta dla tego konta.
                                                 </TableCell>
                                             </TableRow>
                                         )}
@@ -573,16 +579,16 @@ export default function ReconciliationClient() {
                 isOpen={deleteAccountConfirmOpen}
                 onClose={() => setDeleteAccountConfirmOpen(false)}
                 onConfirm={() => accountToDelete && deleteAccountMutation.mutate(accountToDelete.id)}
-                title="Delete Account"
-                description={`Are you sure you want to delete "${accountToDelete?.name}"? This will also delete all associated statements. This action cannot be undone.`}
+                title="Usuń konto"
+                description={`Czy na pewno chcesz usunąć konto "${accountToDelete?.name}"? Zostaną też usunięte wszystkie powiązane stany konta. Tej operacji nie można cofnąć.`}
             />
 
             <DeleteConfirmDialog
                 isOpen={deleteStatementConfirmOpen}
                 onClose={() => setDeleteStatementConfirmOpen(false)}
                 onConfirm={() => statementToDelete && deleteStatementMutation.mutate(statementToDelete.id)}
-                title="Delete Statement"
-                description="Are you sure you want to delete this balance record? This action cannot be undone."
+                title="Usuń stan konta"
+                description="Czy na pewno chcesz usunąć ten zapis salda? Tej operacji nie można cofnąć."
             />
         </div>
     );

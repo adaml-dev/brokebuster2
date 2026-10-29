@@ -20,7 +20,7 @@ export const MigrateLeafDialog: React.FC<MigrateLeafDialogProps> = ({
     parentName,
     onSuccess
 }) => {
-    const [newChildName, setNewChildName] = useState("General");
+    const [newChildName, setNewChildName] = useState("Ogólne");
     const migrateLeaf = useMigrateLeaf();
 
     const handleConfirm = async () => {
@@ -42,34 +42,34 @@ export const MigrateLeafDialog: React.FC<MigrateLeafDialogProps> = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
-                    <DialogTitle>Convert to Parent Category</DialogTitle>
+                    <DialogTitle>Zamień na kategorię nadrzędną</DialogTitle>
                     <DialogDescription>
-                        The category <strong>"{parentName}"</strong> currently has transactions assigned to it.
+                        Kategoria <strong>"{parentName}"</strong> ma obecnie przypisane transakcje.
                         <br /><br />
-                        To add subcategories, we must first move these existing transactions to a new subcategory.
+                        Aby dodać podkategorie, należy najpierw przenieść istniejące transakcje do nowej podkategorii.
                     </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label htmlFor="new-child-name">New Subcategory Name for Existing Transactions</Label>
+                        <Label htmlFor="new-child-name">Nazwa nowej podkategorii dla istniejących transakcji</Label>
                         <Input
                             id="new-child-name"
                             value={newChildName}
                             onChange={(e) => setNewChildName(e.target.value)}
-                            placeholder="e.g. General, Misc, or Other"
+                            placeholder="np. Ogólne, Różne lub Inne"
                         />
                     </div>
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Anuluj</Button>
                     <Button
                         variant="destructive"
                         onClick={handleConfirm}
                         disabled={migrateLeaf.isPending || !newChildName.trim()}
                     >
-                        {migrateLeaf.isPending ? "Migrating..." : "Confirm & Move Transactions"}
+                        {migrateLeaf.isPending ? "Przenoszenie..." : "Potwierdź i przenieś transakcje"}
                     </Button>
                 </DialogFooter>
             </DialogContent>

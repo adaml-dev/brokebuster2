@@ -14,6 +14,8 @@ export interface ColumnContext {
 
 export interface TransactionColumn extends ColumnSizing {
   label: string;
+  // Tooltip on the column header
+  headerTitle?: string;
   sortKey?: string;
   align?: "right";
   numeric?: boolean;
@@ -63,7 +65,7 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "payee",
-    label: "Payee",
+    label: "Odbiorca",
     sortKey: "payee",
     defaultWidth: 200,
     maxAutoWidth: 280,
@@ -73,7 +75,7 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "description",
-    label: "Description",
+    label: "Opis",
     defaultWidth: 320,
     showTitle: true,
     fitClassName: "flex flex-col gap-1",
@@ -103,7 +105,7 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "category",
-    label: "Category",
+    label: "Kategoria",
     sortKey: "category",
     defaultWidth: 160,
     showTitle: true,
@@ -112,15 +114,15 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "origin",
-    label: "Origin",
+    label: "Pochodzenie",
     sortKey: "origin",
     defaultWidth: 100,
-    render: (t) => <Badge variant={getOriginBadgeVariant(t.origin)}>{t.origin || "Unknown"}</Badge>,
+    render: (t) => <Badge variant={getOriginBadgeVariant(t.origin)}>{t.origin || "Nieznane"}</Badge>,
     exportValue: (t) => t.origin ?? "",
   },
   {
     id: "source",
-    label: "Source",
+    label: "Źródło",
     sortKey: "source",
     defaultWidth: 120,
     defaultHidden: true,
@@ -129,14 +131,14 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "type",
-    label: "Type",
+    label: "Typ",
     sortKey: "transaction_type",
     defaultWidth: 120,
     fitClassName: "flex items-center gap-2",
     render: (t, ctx) => (
       <>
         <Badge variant={t.transaction_type === "done" ? "success" : (t.is_realized ? "info" : "warning")}>
-          {t.transaction_type === "done" ? "Done" : (t.is_realized ? "Planned (Zrealizowana)" : "Planned")}
+          {typeLabel(t)}
         </Badge>
         {t.transaction_type === "planned" && (
           <input
@@ -153,7 +155,7 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "amount",
-    label: "Amount",
+    label: "Kwota",
     sortKey: "amount",
     align: "right",
     numeric: true,
@@ -166,7 +168,8 @@ export const TRANSACTION_COLUMNS: TransactionColumn[] = [
   },
   {
     id: "balance",
-    label: "Balance",
+    label: "Saldo narastające",
+    headerTitle: "Suma kwot przefiltrowanych transakcji od najstarszej do danej (chronologicznie). Nie zależy od sortowania ani strony.",
     align: "right",
     numeric: true,
     defaultWidth: 100,

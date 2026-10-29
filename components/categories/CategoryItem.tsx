@@ -95,7 +95,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                                     ? "text-amber-500 scale-110"
                                     : "text-neutral-600 hover:text-amber-400 opacity-0 group-hover:opacity-100"
                             )}
-                            title={category.is_starred ? "Remove star" : "Add star"}
+                            title={category.is_starred ? "Usuń gwiazdkę" : "Oznacz gwiazdką"}
                         >
                             <Star size={14} fill={category.is_starred ? "currentColor" : "none"} />
                         </button>
@@ -115,7 +115,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                     </div>
                     {hasTransactions && (
                         <span className="text-[10px] text-neutral-500">
-                            {category.transaction_count} transactions
+                            Transakcje: {category.transaction_count}
                         </span>
                     )}
                 </div>
@@ -127,7 +127,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                     size="icon"
                     className="h-7 w-7 text-neutral-400 hover:text-green-400"
                     onClick={() => onAddSubcategory(category.id, category.name, hasTransactions)}
-                    title="Add Subcategory"
+                    title="Dodaj podkategorię"
                 >
                     <Plus size={14} />
                 </Button>
@@ -136,7 +136,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                     size="icon"
                     className="h-7 w-7 text-neutral-400 hover:text-blue-400"
                     onClick={() => onEdit(category)}
-                    title="Edit"
+                    title="Edytuj"
                 >
                     <Pencil size={14} />
                 </Button>
@@ -146,7 +146,7 @@ export const CategoryItem: React.FC<CategoryItemProps> = ({
                     size="icon"
                     className="h-7 w-7 text-neutral-400 hover:text-red-400"
                     onClick={() => onDelete(category.id)}
-                    title="Delete"
+                    title="Usuń"
                 >
                     <Trash2 size={14} />
                 </Button>

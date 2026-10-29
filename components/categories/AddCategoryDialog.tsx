@@ -42,26 +42,26 @@ export const AddCategoryDialog: React.FC<AddCategoryDialogProps> = ({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        Add Category {parentName ? `to "${parentName}"` : ""}
+                        {parentName ? `Dodaj podkategorię do "${parentName}"` : "Dodaj kategorię"}
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="category-name">Name</Label>
+                        <Label htmlFor="category-name">Nazwa</Label>
                         <Input
                             id="category-name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Category Name"
+                            placeholder="Nazwa kategorii"
                             autoFocus
                         />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancel
+                            Anuluj
                         </Button>
                         <Button type="submit" disabled={!name.trim() || createCategory.isPending}>
-                            {createCategory.isPending ? "Creating..." : "Create"}
+                            {createCategory.isPending ? "Tworzenie..." : "Utwórz"}
                         </Button>
                     </DialogFooter>
                 </form>

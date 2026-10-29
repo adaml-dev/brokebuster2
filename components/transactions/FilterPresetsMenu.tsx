@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import DropdownPanel from "./DropdownPanel";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 import { describeDate, FilterPreset } from "./filterPresets";
 
 interface FilterPresetsMenuProps {
@@ -35,7 +36,14 @@ export default function FilterPresetsMenu({
     const name = newName.trim();
     if (!name) return;
     const existing = presets.find((p) => p.name.toLowerCase() === name.toLowerCase());
-    if (existing && !confirm(`Zestaw „${existing.name}” już istnieje. Nadpisać go bieżącymi ustawieniami?`)) return;
+    if (existing) {
+      const confirmed = await confirmAction({
+        title: `Zestaw „${existing.name}” już istnieje`,
+        description: "Nadpisać go bieżącymi ustawieniami?",
+        confirmLabel: "Nadpisz",
+      });
+      if (!confirmed) return;
+    }
 
     setIsSaving(true);
     try {

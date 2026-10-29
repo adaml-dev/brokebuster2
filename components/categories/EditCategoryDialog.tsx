@@ -46,26 +46,26 @@ export const EditCategoryDialog: React.FC<EditCategoryDialogProps> = ({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        Edit Category
+                        Edytuj kategorię
                     </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="edit-category-name">Name</Label>
+                        <Label htmlFor="edit-category-name">Nazwa</Label>
                         <Input
                             id="edit-category-name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="Category Name"
+                            placeholder="Nazwa kategorii"
                             autoFocus
                         />
                     </div>
                     <DialogFooter>
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancel
+                            Anuluj
                         </Button>
                         <Button type="submit" disabled={!name.trim() || updateCategory.isPending}>
-                            {updateCategory.isPending ? "Saving..." : "Save Changes"}
+                            {updateCategory.isPending ? "Zapisywanie..." : "Zapisz zmiany"}
                         </Button>
                     </DialogFooter>
                 </form>

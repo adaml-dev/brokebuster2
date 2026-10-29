@@ -1,3 +1,4 @@
+import { notifyError } from "@/lib/notify";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
 
@@ -154,7 +155,7 @@ export function exportTable<T>(format: ExportFormat, columns: ExportColumn<T>[],
       // Uses the browser's print dialog ("Zapisz jako PDF") so Polish characters render correctly
       const win = window.open("", "_blank");
       if (!win) {
-        alert("Przeglądarka zablokowała nowe okno. Zezwól na wyskakujące okna, aby wyeksportować PDF.");
+        notifyError("Przeglądarka zablokowała nowe okno. Zezwól na wyskakujące okna, aby wyeksportować PDF.");
         return;
       }
       win.document.open();

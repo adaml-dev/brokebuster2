@@ -7,6 +7,8 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Category } from "@/lib/types/dashboard";
 import { getCategoryPath } from "@/lib/utils/dashboard";
+import { notifyError, notifySuccess } from "@/lib/notify";
+import { confirmAction } from "@/components/ui/confirm-dialog";
 
 interface UseTransactionActionsProps {
   categories: Category[];
@@ -32,19 +34,19 @@ export const useTransactionActions = ({
     categoryId: string
   ) => {
     if (!categoryId || transactionIds.size === 0) {
-      alert('Wybierz kategorię i zaznacz co najmniej jedną transakcję');
+      notifyError('Wybierz kategorię i zaznacz co najmniej jedną transakcję');
       return;
     }
 
     const selectedCategory = categories.find(c => c.id === categoryId);
     const categoryPath = selectedCategory ? getCategoryPath(categoryId, categories).join(' → ') : categoryId;
 
-    const transactionCount = transactionIds.size;
-    const confirmMessage = `Czy na pewno chcesz przypisać ${transactionCount} transakcji do kategorii:\n"${categoryPath}"?`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: `Przypisać ${transactionIds.size} transakcji do kategorii?`,
+      description: categoryPath,
+      confirmLabel: 'Przypisz',
+    });
+    if (!confirmed) return;
 
     try {
       const response = await fetch('/api/transactions/assign-category', {
@@ -64,29 +66,29 @@ export const useTransactionActions = ({
         throw new Error(result.error || 'Failed to assign category');
       }
 
-      alert(`✅ Sukces!\n\nPrzypisano ${result.updatedCount} transakcji do kategorii:\n"${categoryPath}"`);
+      notifySuccess(`Przypisano ${result.updatedCount} transakcji`, categoryPath);
 
       refreshData();
 
     } catch (error) {
       console.error('Error assigning category:', error);
-      alert(`❌ Błąd podczas przypisywania kategorii:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      notifyError('Nie udało się przypisać kategorii', error);
     }
   }, [categories, refreshData]);
 
   // Unlink transactions from category
   const unlinkFromCategory = useCallback(async (transactionIds: Set<string>) => {
     if (transactionIds.size === 0) {
-      alert('Zaznacz co najmniej jedną transakcję');
+      notifyError('Zaznacz co najmniej jedną transakcję');
       return;
     }
 
-    const transactionCount = transactionIds.size;
-    const confirmMessage = `Czy na pewno chcesz odłączyć ${transactionCount} transakcji od kategorii?\n\nTransakcje staną się nieprzypisane.`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: `Odłączyć ${transactionIds.size} transakcji od kategorii?`,
+      description: 'Transakcje staną się nieprzypisane.',
+      confirmLabel: 'Odłącz',
+    });
+    if (!confirmed) return;
 
     try {
       const response = await fetch('/api/transactions/unlink-category', {
@@ -105,34 +107,30 @@ export const useTransactionActions = ({
         throw new Error(result.error || 'Failed to unlink transactions');
       }
 
-      alert(`✅ Sukces!\n\nOdłączono ${result.updatedCount} transakcji od kategorii.`);
+      notifySuccess(`Odłączono ${result.updatedCount} transakcji od kategorii`);
 
       refreshData();
 
     } catch (error) {
       console.error('Error unlinking transactions:', error);
-      alert(`❌ Błąd podczas odłączania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      notifyError('Nie udało się odłączyć transakcji', error);
     }
   }, [refreshData]);
 
   // Delete transactions
   const deleteTransactions = useCallback(async (transactionIds: Set<string>) => {
     if (transactionIds.size === 0) {
-      alert('Zaznacz co najmniej jedną transakcję');
+      notifyError('Zaznacz co najmniej jedną transakcję');
       return;
     }
 
-    const transactionCount = transactionIds.size;
-    const confirmMessage = `❗ UWAGA ❗\n\nCzy na pewno chcesz TRWALE USUNĄĆ ${transactionCount} transakcji?\n\nTej operacji NIE MOŻNA cofnąć!`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
-    const doubleConfirm = confirm(`Potwierdź ponownie:\n\nUsuwam ${transactionCount} transakcji bezpowrotnie.`);
-    if (!doubleConfirm) {
-      return;
-    }
+    const confirmed = await confirmAction({
+      title: `Trwale usunąć ${transactionIds.size} transakcji?`,
+      description: 'Tej operacji nie można cofnąć.',
+      confirmLabel: 'Usuń',
+      destructive: true,
+    });
+    if (!confirmed) return;
 
     try {
       const response = await fetch('/api/transactions/delete', {
@@ -151,20 +149,21 @@ export const useTransactionActions = ({
         throw new Error(result.error || 'Failed to delete transactions');
       }
 
-      alert(`✅ Sukces!\n\nUsunięto ${result.deletedCount} transakcji.`);
+      notifySuccess(`Usunięto ${result.deletedCount} transakcji`);
 
       refreshData();
 
     } catch (error) {
       console.error('Error deleting transactions:', error);
-      alert(`❌ Błąd podczas usuwania transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      notifyError('Nie udało się usunąć transakcji', error);
     }
   }, [refreshData]);
 
   // Edit transaction
   const editTransaction = useCallback(async (
     transactionId: string,
-    updates: any
+    updates: any,
+    options?: { silent?: boolean }
   ) => {
     try {
       const response = await fetch('/api/transactions/edit', {
@@ -184,20 +183,20 @@ export const useTransactionActions = ({
         throw new Error(result.error || 'Failed to update transaction');
       }
 
-      alert(`✅ Sukces!\n\nTransakcja została zaktualizowana.`);
+      if (!options?.silent) notifySuccess('Transakcja została zaktualizowana');
 
       refreshData();
 
     } catch (error) {
       console.error('Error updating transaction:', error);
-      alert(`❌ Błąd podczas aktualizacji transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      notifyError('Nie udało się zaktualizować transakcji', error);
     }
   }, [refreshData]);
 
   // Create transaction
   const createTransaction = useCallback(async (formData: any) => {
     if (!formData.date || !formData.amount) {
-      alert('Data i kwota są wymagane');
+      notifyError('Data i kwota są wymagane');
       return;
     }
 
@@ -217,16 +216,13 @@ export const useTransactionActions = ({
       }
 
       const count = result.count || 1;
-      const message = count === 1
-        ? `✅ Sukces!\n\nTransakcja została dodana.`
-        : `✅ Sukces!\n\nDodano ${count} transakcji (seria).`;
-      alert(message);
+      notifySuccess(count === 1 ? 'Transakcja została dodana' : `Dodano ${count} transakcji (seria)`);
 
       refreshData();
 
     } catch (error) {
       console.error('Error creating transaction:', error);
-      alert(`❌ Błąd podczas tworzenia transakcji:\n\n${error instanceof Error ? error.message : 'Nieznany błąd'}\n\nSpróbuj ponownie.`);
+      notifyError('Nie udało się dodać transakcji', error);
     }
   }, [refreshData]);
 
