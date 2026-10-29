@@ -171,23 +171,6 @@ export default function Dashboard2Client({
 
     const transactionActions = useTransactionActions({
         categories,
-        dashboardState: {
-            expandedCats: new Set(),
-            monthOffset: 0,
-            categoryFilter: '',
-            clickedCell: null,
-            isCellInfoExpanded: false,
-            showUnassigned: false,
-            transactionFilter: '',
-            categorySearchFilter: '',
-            assignToCategoryId: '',
-            sortColumn: 'date',
-            sortDirection: 'desc',
-            calculationMode: 'mixed',
-        } as any,
-        expandedCats: new Set(),
-        monthOffset: 0,
-        categoryFilter: '',
     });
 
     const formActions = useTransactionForms({

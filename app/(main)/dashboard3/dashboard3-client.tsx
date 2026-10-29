@@ -44,13 +44,12 @@ export default function Dashboard3Client({
   const router = useRouter();
   const [selectedYear] = useState(new Date().getFullYear());
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [starredOnly, setStarredOnly] = useState(false);
-  const [hideUnstarredParents, setHideUnstarredParents] = useState(false);
 
   // === HOOKI ===
 
   // State management (localStorage, expanded categories, clicked cell)
-  const dashboardState = useDashboardState({ categories, transactions });
+  const dashboardState = useDashboardState({ categories, transactions, storageKey: "dashboard3" });
+  const { starredOnly, setStarredOnly, hideUnstarredParents, setHideUnstarredParents } = dashboardState;
 
   // Pivot calculations (kolumny, wartości, sumy) - 6 MONTHS
   const pivotData = usePivotCalculations({
@@ -82,23 +81,6 @@ export default function Dashboard3Client({
   // Transaction actions (API calls)
   const transactionActions = useTransactionActions({
     categories,
-    dashboardState: {
-      expandedCats: Array.from(dashboardState.expandedCats),
-      monthOffset: dashboardState.monthOffset,
-      categoryFilter: dashboardState.categoryFilter,
-      clickedCell: dashboardState.clickedCell,
-      isCellInfoExpanded: dashboardState.isCellInfoExpanded,
-      showUnassigned: dashboardState.showUnassigned,
-      transactionFilter: dashboardState.transactionFilter,
-      categorySearchFilter: dashboardState.categorySearchFilter,
-      assignToCategoryId: dashboardState.assignToCategoryId,
-      sortColumn: dashboardState.sortColumn,
-      sortDirection: dashboardState.sortDirection,
-      calculationMode: dashboardState.calculationMode,
-    },
-    expandedCats: dashboardState.expandedCats,
-    monthOffset: dashboardState.monthOffset,
-    categoryFilter: dashboardState.categoryFilter,
     onSuccess: () => dashboardState.setSelectedTransactionIds(new Set()),
   });
 

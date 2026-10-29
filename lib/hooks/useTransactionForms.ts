@@ -12,10 +12,6 @@ interface UseTransactionFormsProps {
 export const useTransactionForms = ({ transactions, categories, dashboardState }: UseTransactionFormsProps) => {
   const transactionActions = useTransactionActions({
     categories,
-    dashboardState,
-    expandedCats: dashboardState.expandedCats,
-    monthOffset: dashboardState.monthOffset,
-    categoryFilter: dashboardState.categoryFilter,
   });
 
   // === EDIT DIALOG STATE ===

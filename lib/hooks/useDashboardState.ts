@@ -3,40 +3,50 @@
  * Zarządza stanem dashboardu i synchronizację z localStorage
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Category, CellInfo, Transaction } from "@/lib/types/dashboard";
 import { getMonthKey, safeDate, getAllCategoryIds, getCategoryPath } from "@/lib/utils/dashboard";
+
+// useLayoutEffect on the client (restores the view before first paint), useEffect on the server
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface UseDashboardStateProps {
   categories: Category[];
   transactions: Transaction[];
+  /** Prefiks klucza localStorage – każdy widok dashboardu pamięta swój stan osobno */
+  storageKey?: string;
 }
 
-export const useDashboardState = ({ categories, transactions }: UseDashboardStateProps) => {
+// Zapamiętany widok dashboardu
+interface SavedViewState {
+  firstMonth: string; // "YYYY-MM" – zapisany absolutnie, bo monthOffset liczy się od stycznia bieżącego roku
+  starredOnly: boolean;
+  hideUnstarredParents: boolean;
+  expandedCats: string[];
+}
+
+// monthOffset jest liczony od stycznia bieżącego roku (jak selectedYear w dashboardach)
+const offsetToMonth = (offset: number) => {
+  const d = new Date(new Date().getFullYear(), offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const monthToOffset = (month: string): number | null => {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) return null;
+  return (Number(match[1]) - new Date().getFullYear()) * 12 + Number(match[2]) - 1;
+};
+
+export const useDashboardState = ({ categories, transactions, storageKey = "dashboard" }: UseDashboardStateProps) => {
+  const viewStorageKey = `${storageKey}ViewState`;
+
   // Stan rozwijania kategorii
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => {
-    if (typeof window !== "undefined") {
-      const savedState = localStorage.getItem('dashboardState');
-      if (savedState) {
-        try {
-          const parsed = JSON.parse(savedState);
-          if (parsed.expandedCats && Array.isArray(parsed.expandedCats)) {
-            return new Set(parsed.expandedCats);
-          }
-        } catch (e) {}
-      }
-      const savedExpanded = localStorage.getItem("dashboardExpandedCategories");
-      if (savedExpanded) {
-        try {
-          const parsed = JSON.parse(savedExpanded);
-          if (Array.isArray(parsed)) {
-            return new Set(parsed);
-          }
-        } catch (e) {}
-      }
-    }
-    return new Set<string>();
-  });
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  // Widok tylko kategorii z gwiazdką
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [hideUnstarredParents, setHideUnstarredParents] = useState(false);
+  const [viewLoaded, setViewLoaded] = useState(false);
 
   // Stan filtrowania kategorii
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -303,105 +313,57 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     setExpandedCats(newSet);
   }, [categories, expandedCats]);
 
-  // Efekt: Załaduj stan z localStorage
-  useEffect(() => {
-    if (stateLoadedRef.current || categories.length === 0) {
-      return;
-    }
-
+  // Efekt: Przywróć zapamiętany widok (pierwszy miesiąc, gwiazdka, rozwinięte gałęzie) przed pierwszym rysowaniem
+  useIsomorphicLayoutEffect(() => {
+    if (stateLoadedRef.current) return;
     stateLoadedRef.current = true;
 
-    const savedState = localStorage.getItem('dashboardState');
+    try {
+      // Stary jednorazowy snapshot z czasów przeładowywania strony – po przejściu na router.refresh()
+      // przywracał nieaktualny stan przy kolejnym wejściu na dashboard, więc tylko go sprzątamy
+      localStorage.removeItem("dashboardState");
 
-    if (savedState) {
-      try {
-        const parsed = JSON.parse(savedState);
-
-        if (parsed.expandedCats && Array.isArray(parsed.expandedCats)) {
-          setExpandedCats(new Set(parsed.expandedCats));
-        }
-
-        if (typeof parsed.monthOffset === 'number') {
-          setMonthOffset(parsed.monthOffset);
-        }
-
-        if (parsed.categoryFilter) {
-          setCategoryFilter(parsed.categoryFilter);
-        }
-
-        if (parsed.clickedCell) {
-          const categoryId = parsed.clickedCell.categoryId;
-          const monthKey = parsed.clickedCell.monthKey;
-          const monthLabel = parsed.clickedCell.monthLabel;
-
-          setTimeout(() => {
-            handleCellClick(categoryId, monthKey, monthLabel);
-
-            if (typeof parsed.isCellInfoExpanded === 'boolean') {
-              setIsCellInfoExpanded(parsed.isCellInfoExpanded);
-            }
-            if (typeof parsed.showUnassigned === 'boolean') {
-              setShowUnassigned(parsed.showUnassigned);
-            }
-            if (parsed.transactionFilter) {
-              setTransactionFilter(parsed.transactionFilter);
-            }
-            if (parsed.categorySearchFilter) {
-              setCategorySearchFilter(parsed.categorySearchFilter);
-            }
-            if (parsed.assignToCategoryId) {
-              setAssignToCategoryId(parsed.assignToCategoryId);
-            }
-            if (parsed.sortColumn) {
-              setSortColumn(parsed.sortColumn);
-            }
-            if (parsed.sortDirection) {
-              setSortDirection(parsed.sortDirection);
-            }
-            if (parsed.calculationMode) {
-              setCalculationMode(parsed.calculationMode);
-            }
-          }, 100);
-        }
-
-        localStorage.removeItem('dashboardState');
-
-      } catch (error) {
-        console.error('Error parsing saved dashboard state:', error);
-        const initialExpanded = new Set<string>();
-        categories.forEach(c => {
-          if (c.is_expanded) initialExpanded.add(c.id);
-        });
-        setExpandedCats(initialExpanded);
-      }
-    } else {
-      const savedExpanded = localStorage.getItem("dashboardExpandedCategories");
-      if (savedExpanded) {
-        try {
-          const parsed = JSON.parse(savedExpanded);
-          if (Array.isArray(parsed)) {
-            setExpandedCats(new Set(parsed));
-          }
-        } catch (e) {
-          console.error("Error loading expanded categories:", e);
-        }
+      const savedView = localStorage.getItem(viewStorageKey);
+      if (savedView) {
+        const parsed = JSON.parse(savedView) as Partial<SavedViewState>;
+        if (Array.isArray(parsed.expandedCats)) setExpandedCats(new Set(parsed.expandedCats));
+        const offset = typeof parsed.firstMonth === "string" ? monthToOffset(parsed.firstMonth) : null;
+        if (offset !== null) setMonthOffset(offset);
+        if (typeof parsed.starredOnly === "boolean") setStarredOnly(parsed.starredOnly);
+        if (typeof parsed.hideUnstarredParents === "boolean") setHideUnstarredParents(parsed.hideUnstarredParents);
       } else {
-        const initialExpanded = new Set<string>();
-        categories.forEach(c => {
-          if (c.is_expanded) initialExpanded.add(c.id);
-        });
-        setExpandedCats(initialExpanded);
+        // Brak zapisanego widoku – rozwinięte gałęzie ze starszego klucza albo domyślne z bazy
+        const savedExpanded = localStorage.getItem("dashboardExpandedCategories");
+        const parsedExpanded = savedExpanded ? JSON.parse(savedExpanded) : null;
+        if (Array.isArray(parsedExpanded)) {
+          setExpandedCats(new Set(parsedExpanded));
+        } else {
+          setExpandedCats(new Set(categories.filter(c => c.is_expanded).map(c => c.id)));
+        }
       }
+    } catch (error) {
+      console.error("Error loading saved dashboard view:", error);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories.length]);
 
-  // Efekt: Zapisuj rozwijane kategorie przy każdej zmianie po załadowaniu stanu początkowego
+    setViewLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Efekt: Zapisuj widok przy każdej zmianie (dopiero po przywróceniu, żeby nie nadpisać go wartościami domyślnymi)
   useEffect(() => {
-    if (stateLoadedRef.current) {
-      localStorage.setItem("dashboardExpandedCategories", JSON.stringify(Array.from(expandedCats)));
+    if (!viewLoaded) return;
+    const view: SavedViewState = {
+      firstMonth: offsetToMonth(monthOffset),
+      starredOnly,
+      hideUnstarredParents,
+      expandedCats: Array.from(expandedCats),
+    };
+    try {
+      localStorage.setItem(viewStorageKey, JSON.stringify(view));
+    } catch {
+      // Brak dostępu do localStorage – widok po prostu nie zostanie zapamiętany
     }
-  }, [expandedCats]);
+  }, [viewLoaded, viewStorageKey, monthOffset, starredOnly, hideUnstarredParents, expandedCats]);
 
   return {
     // Stan
@@ -419,6 +381,8 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     assignToCategoryId,
     categorySearchFilter,
     calculationMode,
+    starredOnly,
+    hideUnstarredParents,
 
     // Akcje
     setExpandedCats,
@@ -435,6 +399,8 @@ export const useDashboardState = ({ categories, transactions }: UseDashboardStat
     setAssignToCategoryId,
     setCategorySearchFilter,
     setCalculationMode,
+    setStarredOnly,
+    setHideUnstarredParents,
 
     // Funkcje
     handleCellClick,
