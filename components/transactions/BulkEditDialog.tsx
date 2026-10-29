@@ -36,6 +36,7 @@ export default function BulkEditDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
+    date: "",
     origin: "",
     transaction_type: "",
     category: "",
@@ -48,6 +49,7 @@ export default function BulkEditDialog({
   React.useEffect(() => {
     if (isOpen) {
       setFormData({
+        date: "",
         origin: "",
         transaction_type: "",
         category: "",
@@ -65,6 +67,7 @@ export default function BulkEditDialog({
     try {
       // Build updates object with only non-empty fields
       const updates: any = {};
+      if (formData.date) updates.date = formData.date;
       if (formData.origin && formData.origin !== "none") updates.origin = formData.origin;
       if (formData.transaction_type && formData.transaction_type !== "none") updates.transaction_type = formData.transaction_type;
       if (formData.category && formData.category !== "none") updates.category = formData.category;
@@ -118,6 +121,29 @@ export default function BulkEditDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="bulk-date">Data</Label>
+            <div className="flex gap-2">
+              <Input
+                id="bulk-date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                className="flex-1"
+              />
+              {formData.date && (
+                <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, date: "" })}>
+                  Nie zmieniaj
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-neutral-500 mt-1">
+              {formData.date
+                ? `Wszystkie zaznaczone transakcje dostaną datę ${formData.date}.`
+                : "Puste – data nie zostanie zmieniona."}
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="bulk-origin">Pochodzenie</Label>

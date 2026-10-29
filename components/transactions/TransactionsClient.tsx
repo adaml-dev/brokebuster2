@@ -6,12 +6,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter } from "lucide-react";
+import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter, EyeOff } from "lucide-react";
 
 // Dialogs
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
@@ -25,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { exportTable, ExportFormat } from "@/lib/utils/exportTable";
 import CategoryMultiSelect from "./CategoryMultiSelect";
 import ColumnsMenu from "./ColumnsMenu";
+import MultiToggleGroup from "./MultiToggleGroup";
 import ExportMenu from "./ExportMenu";
 import { useColumnLayout } from "./useColumnLayout";
 import {
@@ -53,9 +53,12 @@ export default function TransactionsClient() {
     { text: "", operator: "AND" }
   ]);
   const [useAbsoluteAmount, setUseAbsoluteAmount] = useState(false);
-  const [linkStatus, setLinkStatus] = useState<"all" | "linked" | "unlinked">("all");
-  const [originFilter, setOriginFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  // Multi-select filters: an empty array means "all"
+  const [linkStatus, setLinkStatus] = useState<string[]>([]);
+  const [originFilter, setOriginFilter] = useState<string[]>([]);
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  // Transactions hidden from the view one by one via the row actions
+  const [hiddenTransactionIds, setHiddenTransactionIds] = useState<Set<string>>(new Set());
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [excludedCategories, setExcludedCategories] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
@@ -352,9 +355,10 @@ export default function TransactionsClient() {
   const clearFilters = () => {
     setSearchRules([{ text: "", operator: "AND" }]);
     setUseAbsoluteAmount(false);
-    setLinkStatus("all");
-    setOriginFilter("all");
-    setTypeFilter("all");
+    setLinkStatus([]);
+    setOriginFilter([]);
+    setTypeFilter([]);
+    setHiddenTransactionIds(new Set());
     setSelectedCategories([]);
     setExcludedCategories([]);
     setDateFrom("");
@@ -366,16 +370,16 @@ export default function TransactionsClient() {
     setPresetBaseDate(new Date());
   };
 
-  const isBasicFiltered = searchRules.some(r => r.text !== "") || linkStatus !== "all" || originFilter !== "all" || typeFilter !== "all";
+  const isBasicFiltered = searchRules.some(r => r.text !== "") || linkStatus.length > 0 || originFilter.length > 0 || typeFilter.length > 0;
   const isCategoriesFiltered = selectedCategories.length > 0 || excludedCategories.length > 0;
   const isDateAmountFiltered = dateFrom !== "" || dateTo !== "" || minAmount !== "" || maxAmount !== "" || useAbsoluteAmount;
   const isTagsFiltered = selectedTags.length > 0;
 
   const clearBasicFilters = () => {
     setSearchRules([{ text: "", operator: "AND" }]);
-    setLinkStatus("all");
-    setOriginFilter("all");
-    setTypeFilter("all");
+    setLinkStatus([]);
+    setOriginFilter([]);
+    setTypeFilter([]);
   };
 
   const clearCategoriesFilters = () => {
@@ -430,21 +434,27 @@ export default function TransactionsClient() {
       });
     }
 
+    // Manually hidden transactions
+    if (hiddenTransactionIds.size > 0) {
+      filtered = filtered.filter((t) => !hiddenTransactionIds.has(t.id));
+    }
+
     // Link status filter
-    if (linkStatus === "linked") {
-      filtered = filtered.filter((t) => t.category);
-    } else if (linkStatus === "unlinked") {
-      filtered = filtered.filter((t) => !t.category);
+    if (linkStatus.length > 0) {
+      filtered = filtered.filter((t) => linkStatus.includes(t.category ? "linked" : "unlinked"));
     }
 
-    // Origin filter
-    if (originFilter !== "all") {
-      filtered = filtered.filter((t) => t.origin?.toLowerCase() === originFilter.toLowerCase());
+    // Origin filter (transactions without origin count as "unknown")
+    if (originFilter.length > 0) {
+      filtered = filtered.filter((t) => originFilter.includes(t.origin?.toLowerCase() || "unknown"));
     }
 
-    // Transaction type filter
-    if (typeFilter !== "all") {
-      filtered = filtered.filter((t) => t.transaction_type === typeFilter);
+    // Transaction type filter (planned split by realization status)
+    if (typeFilter.length > 0) {
+      filtered = filtered.filter((t) => {
+        const type = t.transaction_type === "done" ? "done" : t.is_realized ? "planned_realized" : "planned_unrealized";
+        return typeFilter.includes(type);
+      });
     }
 
     // Category filter (inclusion)
@@ -530,7 +540,7 @@ export default function TransactionsClient() {
     });
 
     return filtered;
-  }, [transactions, searchRules, useAbsoluteAmount, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
+  }, [transactions, hiddenTransactionIds, searchRules, useAbsoluteAmount, linkStatus, originFilter, typeFilter, selectedCategories, excludedCategories, dateFrom, dateTo, minAmount, maxAmount, selectedTags, sortColumn, sortDirection, categories]);
 
   // Reset currentPage to 1 when filters change
   React.useEffect(() => {
@@ -675,6 +685,16 @@ export default function TransactionsClient() {
     if (confirm("Czy na pewno chcesz usunąć tę transakcję?")) {
       await deleteTransactionMutation.mutateAsync([id]);
     }
+  };
+
+  const handleHideTransactions = (ids: string[]) => {
+    setHiddenTransactionIds((prev) => new Set([...Array.from(prev), ...ids]));
+    // Hidden rows should not stay selected for bulk actions
+    setSelectedTransactions((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
   };
 
   const handleDeleteSelected = async () => {
@@ -881,42 +901,45 @@ export default function TransactionsClient() {
             {/* Link Status Tabs */}
             <div>
               <Label className="text-xs">Status powiązania</Label>
-              <Tabs value={linkStatus} onValueChange={(v: any) => setLinkStatus(v)} className="mt-1">
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="linked">Linked</TabsTrigger>
-                  <TabsTrigger value="unlinked">Unlinked</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <MultiToggleGroup
+                selected={linkStatus}
+                onChange={setLinkStatus}
+                options={[
+                  { value: "linked", label: "Linked" },
+                  { value: "unlinked", label: "Unlinked" },
+                ]}
+              />
             </div>
 
             {/* Origin Tabs */}
             <div>
               <Label className="text-xs">Pochodzenie</Label>
-              <Tabs value={originFilter} onValueChange={setOriginFilter} className="mt-1">
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="mbank">mBank</TabsTrigger>
-                  <TabsTrigger value="ing">ING</TabsTrigger>
-                </TabsList>
-                <TabsList className="grid grid-cols-3 w-full mt-1">
-                  <TabsTrigger value="pekao">Pekao</TabsTrigger>
-                  <TabsTrigger value="cash">Cash</TabsTrigger>
-                  <TabsTrigger value="unknown">Unknown</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <MultiToggleGroup
+                selected={originFilter}
+                onChange={setOriginFilter}
+                options={[
+                  { value: "mbank", label: "mBank" },
+                  { value: "ing", label: "ING" },
+                  { value: "pekao", label: "Pekao" },
+                  { value: "cash", label: "Cash" },
+                  { value: "unknown", label: "Unknown" },
+                ]}
+              />
             </div>
 
             {/* Transaction Type Tabs */}
             <div>
               <Label className="text-xs">Typ transakcji</Label>
-              <Tabs value={typeFilter} onValueChange={setTypeFilter} className="mt-1">
-                <TabsList className="grid grid-cols-3 w-full">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="planned">Planned</TabsTrigger>
-                  <TabsTrigger value="done">Done</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <MultiToggleGroup
+                selected={typeFilter}
+                onChange={setTypeFilter}
+                columns={2}
+                options={[
+                  { value: "done", label: "Done" },
+                  { value: "planned_realized", label: "Planned · zrealiz." },
+                  { value: "planned_unrealized", label: "Planned · niezrealiz." },
+                ]}
+              />
             </div>
           </div>
         )}
@@ -1244,6 +1267,18 @@ export default function TransactionsClient() {
               onReset={columnLayout.reset}
             />
             <ExportMenu rowCount={filteredAndSortedTransactions.length} onExport={handleExport} />
+            {hiddenTransactionIds.size > 0 && (
+              <Button
+                variant="ghost"
+                onClick={() => setHiddenTransactionIds(new Set())}
+                className="text-neutral-400 hover:text-white"
+                title="Przywróć ręcznie ukryte transakcje"
+              >
+                <EyeOff className="h-4 w-4 mr-2" />
+                Ukryte: {hiddenTransactionIds.size}
+                <X className="h-3.5 w-3.5 ml-2" />
+              </Button>
+            )}
           </div>
 
           {/* Bulk Action Bar */}
@@ -1275,6 +1310,10 @@ export default function TransactionsClient() {
               <Button onClick={handleBulkEdit} size="sm" variant="secondary">
                 <Edit2 className="h-4 w-4 mr-1" />
                 Bulk Edit
+              </Button>
+              <Button onClick={() => handleHideTransactions(Array.from(selectedTransactions))} size="sm" variant="outline">
+                <EyeOff className="h-4 w-4 mr-1" />
+                Ukryj z widoku
               </Button>
               <Button onClick={handleDeleteSelected} size="sm" variant="destructive">
                 <Trash2 className="h-4 w-4 mr-1" />
@@ -1384,6 +1423,9 @@ export default function TransactionsClient() {
                         </Button>
                         <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Kopiuj jako nową" onClick={() => handleCopyTransaction(t)}>
                           <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Ukryj z widoku" onClick={() => handleHideTransactions([t.id])}>
+                          <EyeOff className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
