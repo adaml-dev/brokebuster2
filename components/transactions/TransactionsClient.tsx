@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter, Download } from "lucide-react";
-import * as XLSX from 'xlsx';
+import { Search, Plus, Trash2, Edit2, Copy, Link as LinkIcon, Unlink, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, X, Filter } from "lucide-react";
 
 // Dialogs
 import { ManualEntryDialog } from "@/components/dashboard/ManualEntryDialog";
@@ -23,9 +21,19 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/co
 
 import { isLeafCategory, getAllCategoryIds } from "@/lib/utils/dashboard";
 import { Category, Tag, Transaction } from "@/lib/types/dashboard";
-import { TagBadge } from "./TagBadge";
 import { cn } from "@/lib/utils";
+import { exportTable, ExportFormat } from "@/lib/utils/exportTable";
 import CategoryMultiSelect from "./CategoryMultiSelect";
+import ColumnsMenu from "./ColumnsMenu";
+import ExportMenu from "./ExportMenu";
+import { useColumnLayout } from "./useColumnLayout";
+import {
+  ColumnContext,
+  formatAmount,
+  TRANSACTION_COLUMNS,
+  TRANSACTION_COLUMNS_BY_ID,
+  TransactionRow,
+} from "./transactionColumns";
 
 // Types
 // Local Transaction interface removed - using shared Transaction from lib/types/dashboard
@@ -35,20 +43,7 @@ interface SearchRule {
   operator: "AND" | "OR";
 }
 
-function formatAmount(amount: number): string {
-  const rounded = Math.round(amount);
-  const absRounded = Math.abs(rounded);
-  let str = String(absRounded);
-  const parts = [];
-  while (str.length > 3) {
-    parts.unshift(str.slice(-3));
-    str = str.slice(0, -3);
-  }
-  if (str) {
-    parts.unshift(str);
-  }
-  return (rounded < 0 ? "-" : "") + parts.join(" ");
-}
+const SELECT_COLUMN_WIDTH = 40;
 
 export default function TransactionsClient() {
   const queryClient = useQueryClient();
@@ -350,15 +345,6 @@ export default function TransactionsClient() {
     return category ? category.name : categoryId;
   };
 
-  const getOriginBadgeVariant = (origin: string | null | undefined) => {
-    const lower = origin?.toLowerCase() || "";
-    if (lower.includes("mbank")) return "info";
-    if (lower.includes("ing")) return "warning";
-    if (lower.includes("pekao")) return "success";
-    if (lower.includes("cash")) return "secondary";
-    return "default";
-  };
-
   const getTypeBadgeVariant = (type: string) => {
     return type === "done" ? "success" : "warning";
   };
@@ -567,6 +553,17 @@ export default function TransactionsClient() {
     });
   }, [paginatedTransactions]);
 
+  // ===== COLUMN LAYOUT =====
+  const tableRef = useRef<HTMLTableElement>(null);
+  const columnLayout = useColumnLayout(TRANSACTION_COLUMNS, "bb2.transactions.columns.v1", tableRef, transactionsWithBalance);
+  const visibleColumns = columnLayout.visibleIds.map((id) => TRANSACTION_COLUMNS_BY_ID[id]);
+
+  const columnContext: ColumnContext = {
+    getCategoryName,
+    onToggleRealized: handleToggleRealized,
+    showTagsInDescription: !columnLayout.visibleIds.includes("tags"),
+  };
+
   // ===== TRANSACTION SUMS =====
   const transactionSums = useMemo(() => {
     const planned = filteredAndSortedTransactions
@@ -591,6 +588,7 @@ export default function TransactionsClient() {
 
   // ===== EVENT HANDLERS =====
   const handleSort = (column: string) => {
+    if (columnLayout.isResizing()) return;
     if (sortColumn === column) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
     } else {
@@ -730,22 +728,25 @@ export default function TransactionsClient() {
     setIsBulkEditDialogOpen(true);
   };
 
-  const handleExport = () => {
-    const exportData = filteredAndSortedTransactions.map((t) => ({
-      Data: t.date,
-      Payee: t.payee,
-      Opis: t.description,
-      Kategoria: getCategoryName(t.category),
-      Kwota: t.amount || 0,
-      Pochodzenie: t.origin,
-      Typ: t.transaction_type === "done" ? "Dokonana" : "Planowana",
+  // Exports all filtered rows (not just the current page) with the visible columns in their current order
+  const handleExport = (format: ExportFormat) => {
+    let balance = 0;
+    const rows: TransactionRow[] = filteredAndSortedTransactions.map((t) => {
+      balance += t.amount || 0;
+      return { ...t, cumulativeBalance: balance };
+    });
+
+    const columns = visibleColumns.map((col) => ({
+      header: col.label,
+      numeric: col.numeric,
+      value: (row: TransactionRow) => col.exportValue(row, columnContext),
     }));
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Transakcje");
     const dateStr = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(wb, `transakcje_export_${dateStr}.xlsx`);
+    exportTable(format, columns, rows, {
+      filename: `transakcje_export_${dateStr}`,
+      title: `Transakcje – eksport ${dateStr}`,
+    });
   };
 
   const FilterContent = (
@@ -758,11 +759,6 @@ export default function TransactionsClient() {
         }} className="w-full" size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Add Transaction
-        </Button>
-
-        <Button onClick={handleExport} variant="outline" className="w-full" size="sm">
-          <Download className="h-4 w-4 mr-2" />
-          Eksportuj do XLSX
         </Button>
 
         <Button onClick={clearFilters} variant="outline" className="w-full" size="sm">
@@ -1206,7 +1202,7 @@ export default function TransactionsClient() {
       <Card className="flex-1 bg-neutral-900 border-neutral-800 flex flex-col overflow-hidden">
         <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
           {/* Filter Action Bar (Visible on all screens) */}
-          <div className="flex gap-2 mb-4 justify-start">
+          <div className="flex flex-wrap gap-2 mb-4 justify-start">
             <Sheet open={isFiltersSheetOpen} onOpenChange={setIsFiltersSheetOpen}>
               <SheetTrigger asChild>
                 <Button variant="outline" className="flex-1 sm:flex-initial sm:w-36">
@@ -1235,6 +1231,19 @@ export default function TransactionsClient() {
               <Plus className="h-4 w-4 mr-2" />
               Add
             </Button>
+            <ColumnsMenu
+              columns={TRANSACTION_COLUMNS}
+              order={columnLayout.order}
+              hidden={columnLayout.hidden}
+              isAuto={columnLayout.isAuto}
+              widthOf={columnLayout.widthOf}
+              onToggleVisible={columnLayout.toggleVisible}
+              onMove={columnLayout.move}
+              onSetAuto={columnLayout.setAuto}
+              onSetAllAuto={columnLayout.setAllAuto}
+              onReset={columnLayout.reset}
+            />
+            <ExportMenu rowCount={filteredAndSortedTransactions.length} onExport={handleExport} />
           </div>
 
           {/* Bulk Action Bar */}
@@ -1279,108 +1288,108 @@ export default function TransactionsClient() {
 
           {/* Table */}
           <div className="flex-1 min-h-0 border border-neutral-800 rounded-md flex flex-col">
-            <Table wrapperClassName="flex-1 overflow-auto">
+            <Table
+              ref={tableRef}
+              wrapperClassName="flex-1 overflow-auto"
+              className="table-fixed"
+              style={{ minWidth: SELECT_COLUMN_WIDTH + columnLayout.totalWidth }}
+            >
+              <colgroup>
+                <col style={{ width: SELECT_COLUMN_WIDTH }} />
+                {visibleColumns.map((col) => (
+                  <col key={col.id} style={{ width: columnLayout.widthOf(col.id) }} />
+                ))}
+                {/* Filler column: takes leftover space and hosts the hover actions */}
+                <col />
+              </colgroup>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12">
+                  <TableHead>
                     <Checkbox
                       checked={paginatedTransactions.length > 0 && paginatedTransactions.every((t) => selectedTransactions.has(t.id))}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("date")}>
-                    Data {sortColumn === "date" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("payee")}>
-                    Payee {sortColumn === "payee" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="whitespace-nowrap">Description</TableHead>
-                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("category")}>
-                    Category {sortColumn === "category" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("origin")}>
-                    Origin {sortColumn === "origin" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="cursor-pointer whitespace-nowrap" onClick={() => handleSort("transaction_type")}>
-                    Type {sortColumn === "transaction_type" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="cursor-pointer text-right whitespace-nowrap" onClick={() => handleSort("amount")}>
-                    Amount {sortColumn === "amount" && (sortDirection === "asc" ? "↑" : "↓")}
-                  </TableHead>
-                  <TableHead className="text-right whitespace-nowrap">Balance</TableHead>
-                  <TableHead className="w-24 whitespace-nowrap">Actions</TableHead>
+                  {visibleColumns.map((col) => (
+                    <TableHead
+                      key={col.id}
+                      data-col={col.id}
+                      className={cn(
+                        "relative whitespace-nowrap select-none",
+                        col.sortKey && "cursor-pointer",
+                        col.align === "right" && "text-right"
+                      )}
+                      onClick={col.sortKey ? () => handleSort(col.sortKey!) : undefined}
+                    >
+                      <div data-fit className="truncate">
+                        {col.label} {col.sortKey && sortColumn === col.sortKey && (sortDirection === "asc" ? "↑" : "↓")}
+                      </div>
+                      <div
+                        role="separator"
+                        aria-orientation="vertical"
+                        title="Przeciągnij, aby zmienić szerokość · dwuklik = autodopasowanie"
+                        onPointerDown={(e) => columnLayout.startResize(col.id, e)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          columnLayout.setAuto(col.id);
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className={cn(
+                          "absolute right-0 top-1/4 h-1/2 w-1.5 cursor-col-resize rounded-full transition-colors",
+                          columnLayout.isAuto(col.id)
+                            ? "bg-neutral-800 hover:bg-blue-500"
+                            : "bg-blue-900 hover:bg-blue-500"
+                        )}
+                      />
+                    </TableHead>
+                  ))}
+                  <TableHead className="p-0" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactionsWithBalance.map((t) => (
-                  <TableRow key={t.id}>
+                  <TableRow key={t.id} className="group">
                     <TableCell>
                       <Checkbox
                         checked={selectedTransactions.has(t.id)}
                         onCheckedChange={() => handleSelectTransaction(t.id)}
                       />
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{t.date}</TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={t.payee || undefined}>{t.payee}</TableCell>
-                    <TableCell className="max-w-md truncate" title={t.description || undefined}>
-                      <div className="flex flex-col gap-1">
-                        <span>{t.description}</span>
-                        {t.tags && t.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {t.tags.map((tag: Tag) => (
-                              <TagBadge key={tag.id} name={tag.name} color={tag.color} className="scale-75 origin-left" />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{getCategoryName(t.category)}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <Badge variant={getOriginBadgeVariant(t.origin)}>
-                        {t.origin || "Unknown"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={t.transaction_type === "done" ? "success" : (t.is_realized ? "info" : "warning")}>
-                          {t.transaction_type === "done" ? "Done" : (t.is_realized ? "Planned (Zrealizowana)" : "Planned")}
-                        </Badge>
-                        {t.transaction_type === "planned" && (
-                          <input
-                            type="checkbox"
-                            checked={t.is_realized || false}
-                            onChange={() => handleToggleRealized(t)}
-                            title="Oznacz jako zrealizowaną"
-                            className="w-3.5 h-3.5 rounded border-neutral-600 bg-neutral-850 text-green-600 focus:ring-green-500 cursor-pointer"
-                          />
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className={`text-right font-medium whitespace-nowrap ${(t.amount || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
-                      {formatAmount(t.amount || 0)}
-                    </TableCell>
-                    <TableCell className="text-right font-medium whitespace-nowrap">
-                      {formatAmount(t.cumulativeBalance as number)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditTransaction(t)}
+                    {visibleColumns.map((col) => {
+                      const title = col.showTitle ? col.exportValue(t, columnContext) : null;
+                      return (
+                        <TableCell
+                          key={col.id}
+                          data-col={col.id}
+                          title={title ? String(title) : undefined}
+                          className={cn("overflow-hidden whitespace-nowrap", col.align === "right" && "text-right", col.cellClassName)}
                         >
+                          <div data-fit className={col.fitClassName ?? "truncate"}>
+                            {col.render(t, columnContext)}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="sticky right-0 p-0">
+                      <div
+                        className={cn(
+                          "absolute right-2 top-1/2 -translate-y-1/2 z-10 flex gap-0.5 rounded-md border border-neutral-700 bg-neutral-900/95 p-0.5 shadow-lg",
+                          "opacity-0 pointer-events-none transition-opacity",
+                          "group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto",
+                          "[@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto"
+                        )}
+                      >
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Edytuj" onClick={() => handleEditTransaction(t)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleCopyTransaction(t)}
-                        >
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="Kopiuj jako nową" onClick={() => handleCopyTransaction(t)}>
                           <Copy className="h-4 w-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="h-7 w-7 p-0 hover:text-red-400"
+                          title="Usuń"
                           onClick={() => handleDeleteTransaction(t.id)}
                         >
                           <Trash2 className="h-4 w-4" />
