@@ -329,8 +329,19 @@ export default function TransactionsClient() {
       if (!res.ok) throw new Error("Failed to toggle realized status");
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    // Optimistic update: flip the checkbox immediately instead of waiting for a full refetch
+    // of all transactions; only is_realized changes, so no refetch is needed on success
+    onMutate: async ({ transactionId, isRealized }) => {
+      await queryClient.cancelQueries({ queryKey: ["transactions"] });
+      const previous = queryClient.getQueryData<Transaction[]>(["transactions"]);
+      queryClient.setQueryData<Transaction[]>(["transactions"], (old) =>
+        old?.map((t) => (t.id === transactionId ? { ...t, is_realized: isRealized } : t))
+      );
+      return { previous };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previous) queryClient.setQueryData(["transactions"], context.previous);
+      alert(`❌ Nie udało się zmienić statusu realizacji:\n\n${error instanceof Error ? error.message : "Nieznany błąd"}`);
     },
   });
 
